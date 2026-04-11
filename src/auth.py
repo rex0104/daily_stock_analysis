@@ -228,9 +228,11 @@ def is_password_changeable() -> bool:
 
 
 def _get_session_secret() -> Optional[bytes]:
-    """Return session signing secret."""
-    if not is_auth_enabled():
-        return None
+    """Return session signing secret.
+
+    Works both in legacy single-admin mode (ADMIN_AUTH_ENABLED) and in
+    multi-user mode where users exist in the database.
+    """
     return _load_session_secret()
 
 
