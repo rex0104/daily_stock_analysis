@@ -75,3 +75,9 @@ router.include_router(
     prefix="/watchlist",
     tags=["Watchlist"]
 )
+
+router.include_router(
+    share.router,
+    prefix="/share",
+    tags=["Share"]
+)
