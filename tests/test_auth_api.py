@@ -222,7 +222,7 @@ class AuthApiTestCase(unittest.TestCase):
         request = Request(scope)
         middleware = AuthMiddleware(app=MagicMock())
 
-        with patch("api.middlewares.auth.is_auth_enabled", return_value=True):
+        with patch("api.middlewares.auth.has_users", return_value=True):
             response = asyncio.run(middleware.dispatch(request, AsyncMock(return_value=Response(status_code=200))))
 
         self.assertEqual(response.status_code, 401)
@@ -243,7 +243,7 @@ class AuthApiTestCase(unittest.TestCase):
         middleware = AuthMiddleware(app=MagicMock())
         call_next = AsyncMock(return_value=Response(status_code=204))
 
-        with patch("api.middlewares.auth.is_auth_enabled", return_value=True):
+        with patch("api.middlewares.auth.has_users", return_value=True):
             response = asyncio.run(middleware.dispatch(request, call_next))
 
         self.assertEqual(response.status_code, 401)
@@ -266,8 +266,8 @@ class AuthApiTestCase(unittest.TestCase):
         next_response = Response(status_code=200)
         call_next = AsyncMock(return_value=next_response)
 
-        with patch("api.middlewares.auth.is_auth_enabled", return_value=True):
-            with patch("api.middlewares.auth.verify_session", return_value=True):
+        with patch("api.middlewares.auth.has_users", return_value=True):
+            with patch("api.middlewares.auth.verify_session_user", return_value="user123"):
                 response = asyncio.run(middleware.dispatch(request, call_next))
 
         self.assertEqual(response.status_code, 200)
@@ -288,7 +288,7 @@ class AuthApiTestCase(unittest.TestCase):
         request = Request(scope)
         middleware = AuthMiddleware(app=MagicMock())
 
-        with patch("api.middlewares.auth.is_auth_enabled", return_value=True):
+        with patch("api.middlewares.auth.has_users", return_value=True):
             response = asyncio.run(middleware.dispatch(request, AsyncMock(return_value=Response(status_code=200))))
 
         self.assertEqual(response.status_code, 401)
@@ -310,7 +310,7 @@ class AuthApiTestCase(unittest.TestCase):
         next_response = Response(status_code=200)
         call_next = AsyncMock(return_value=next_response)
 
-        with patch("api.middlewares.auth.is_auth_enabled", return_value=False):
+        with patch("api.middlewares.auth.has_users", return_value=False):
             response = asyncio.run(middleware.dispatch(request, call_next))
 
         self.assertEqual(response.status_code, 200)
