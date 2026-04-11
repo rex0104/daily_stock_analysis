@@ -246,6 +246,9 @@ class AnalysisHistory(Base):
 
     created_at = Column(DateTime, default=datetime.now, index=True)
 
+    # 多用户隔离（v1 migration 新增；新建库由 create_all 直接创建）
+    user_id = Column(String(32), index=True)
+
     __table_args__ = (
         Index('ix_analysis_code_time', 'code', 'created_at'),
     )
@@ -606,6 +609,9 @@ class ConversationMessage(Base):
     role = Column(String(20), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.now, index=True)
+
+    # 多用户隔离（v1 migration 新增；新建库由 create_all 直接创建）
+    user_id = Column(String(32), index=True)
 
 
 class LLMUsage(Base):
