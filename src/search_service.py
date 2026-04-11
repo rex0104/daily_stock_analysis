@@ -3063,6 +3063,8 @@ class SearchService:
                     'desc': '公司公告',
                     'tavily_topic': 'news',
                     'strict_freshness': True,
+                    # SerpAPI (Google) 对中文公告覆盖差，优先用中文搜索引擎
+                    'prefer_provider': ('Anspire', 'Tavily', 'Brave'),
                 },
                 {
                     'name': 'earnings',
@@ -3073,6 +3075,7 @@ class SearchService:
                     'desc': '业绩预期',
                     'tavily_topic': None,
                     'strict_freshness': False,
+                    'prefer_provider': ('Tavily', 'Anspire', 'Brave'),
                 },
                 {
                     'name': 'industry',
@@ -3106,19 +3109,31 @@ class SearchService:
         
         # 轮流使用不同的搜索引擎
         provider_index = 0
-        
+
         for dim in search_dimensions:
             if search_count >= max_searches:
                 break
-            
-            # 选择搜索引擎（轮流使用）
+
+            # 选择搜索引擎（轮流使用，但尊重维度偏好）
             available_providers = [p for p in self._providers if p.is_available]
             if not available_providers:
                 break
-            
-            provider = available_providers[provider_index % len(available_providers)]
+
+            prefer_names = dim.get('prefer_provider')
+            if prefer_names:
+                preferred = None
+                for pname in prefer_names:
+                    for p in available_providers:
+                        if p.name == pname:
+                            preferred = p
+                            break
+                    if preferred:
+                        break
+                provider = preferred or available_providers[provider_index % len(available_providers)]
+            else:
+                provider = available_providers[provider_index % len(available_providers)]
             provider_index += 1
-            
+
             logger.info(f"[情报搜索] {dim['desc']}: 使用 {provider.name}")
 
             if isinstance(provider, TavilySearchProvider) and dim.get('tavily_topic'):

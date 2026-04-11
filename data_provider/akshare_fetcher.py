@@ -267,10 +267,13 @@ class AkshareFetcher(BaseFetcher):
     name = "AkshareFetcher"
     priority = int(os.getenv("AKSHARE_PRIORITY", "1"))
     
+    # Eastmoney host used by ak.stock_cyq_em (chip distribution)
+    _EASTMONEY_CYQ_HOST = "push2his.eastmoney.com"
+
     def __init__(self, sleep_min: float = 2.0, sleep_max: float = 5.0):
         """
         初始化 AkshareFetcher
-        
+
         Args:
             sleep_min: 最小休眠时间（秒）
             sleep_max: 最大休眠时间（秒）
@@ -278,9 +281,24 @@ class AkshareFetcher(BaseFetcher):
         self.sleep_min = sleep_min
         self.sleep_max = sleep_max
         self._last_request_time: Optional[float] = None
+        self._eastmoney_cyq_reachable: bool = self._probe_cyq_dns()
         # 东财补丁开启才执行打补丁操作
         if get_config().enable_eastmoney_patch:
             eastmoney_patch()
+
+    @classmethod
+    def _probe_cyq_dns(cls) -> bool:
+        """Probe eastmoney chip distribution host DNS at init."""
+        import socket
+        try:
+            socket.getaddrinfo(cls._EASTMONEY_CYQ_HOST, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            return True
+        except (socket.gaierror, OSError):
+            logger.warning(
+                "[AkshareFetcher] 东方财富域名 %s 不可达，本次运行将跳过筹码分布接口",
+                cls._EASTMONEY_CYQ_HOST,
+            )
+            return False
     
     def _set_random_user_agent(self) -> None:
         """
@@ -1475,11 +1493,15 @@ class AkshareFetcher(BaseFetcher):
             logger.debug(f"[API跳过] {stock_code} 是 ETF/指数，无筹码分布数据")
             return None
         
+        if not self._eastmoney_cyq_reachable:
+            logger.debug(f"[API跳过] 东方财富不可达，跳过 {stock_code} 筹码分布")
+            return None
+
         try:
             # 防封禁策略
             self._set_random_user_agent()
             self._enforce_rate_limit()
-            
+
             logger.info(f"[API调用] ak.stock_cyq_em(symbol={stock_code}) 获取筹码分布...")
             import time as _time
             api_start = _time.time()

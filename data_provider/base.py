@@ -1965,10 +1965,15 @@ class DataFetcherManager:
     def get_fundamental_context(
         self,
         stock_code: str,
-        budget_seconds: Optional[float] = None
+        budget_seconds: Optional[float] = None,
+        realtime_quote=None,
     ) -> Dict[str, Any]:
         """
         Aggregate fundamental blocks with fail-open semantics.
+
+        Args:
+            realtime_quote: Pre-fetched realtime quote to reuse for valuation
+                fields, avoiding a redundant network call.
         """
         from src.config import get_config
 
@@ -2029,7 +2034,9 @@ class DataFetcherManager:
             remaining_seconds = max(0.0, remaining_seconds - consumed_ms / 1000.0)
 
         valuation_timeout = min(fetch_timeout, remaining_seconds)
-        if valuation_timeout > 0:
+        if realtime_quote is not None:
+            quote_payload, valuation_err, valuation_ms = realtime_quote, None, 0
+        elif valuation_timeout > 0:
             quote_payload, valuation_err, valuation_ms = self._run_with_retry(
                 lambda: self.get_realtime_quote(stock_code),
                 valuation_timeout,

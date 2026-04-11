@@ -255,10 +255,16 @@ class EfinanceFetcher(BaseFetcher):
     name = "EfinanceFetcher"
     priority = int(os.getenv("EFINANCE_PRIORITY", "0"))  # 最高优先级，排在 AkshareFetcher 之前
     
+    # Eastmoney hosts that must be reachable for data fetching
+    _EASTMONEY_PROBE_HOSTS = [
+        "push2his.eastmoney.com",
+        "searchapi.eastmoney.com",
+    ]
+
     def __init__(self, sleep_min: float = 1.5, sleep_max: float = 3.0):
         """
         初始化 EfinanceFetcher
-        
+
         Args:
             sleep_min: 最小休眠时间（秒）
             sleep_max: 最大休眠时间（秒）
@@ -266,9 +272,24 @@ class EfinanceFetcher(BaseFetcher):
         self.sleep_min = sleep_min
         self.sleep_max = sleep_max
         self._last_request_time: Optional[float] = None
+        self._eastmoney_reachable: bool = self._probe_eastmoney_dns()
         # 东财补丁开启才执行打补丁操作
         if get_config().enable_eastmoney_patch:
             eastmoney_patch()
+
+    @classmethod
+    def _probe_eastmoney_dns(cls) -> bool:
+        """Probe eastmoney DNS once at init; mark unreachable to fast-fail later."""
+        import socket
+        for host in cls._EASTMONEY_PROBE_HOSTS:
+            try:
+                socket.getaddrinfo(host, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            except (socket.gaierror, OSError):
+                logger.warning(
+                    "[EfinanceFetcher] 东方财富域名 %s 不可达，本次运行将跳过依赖该域名的接口", host
+                )
+                return False
+        return True
 
     @staticmethod
     def _build_history_failure_message(
@@ -1098,10 +1119,14 @@ class EfinanceFetcher(BaseFetcher):
             self._set_random_user_agent()
             self._enforce_rate_limit()
             
+            if not self._eastmoney_reachable:
+                logger.debug(f"[API跳过] 东方财富不可达，跳过 {stock_code} 板块查询")
+                return None
+
             logger.info(f"[API调用] ef.stock.get_belong_board(stock_code={stock_code}) 获取所属板块...")
             import time as _time
             api_start = _time.time()
-            
+
             df = _ef_call_with_timeout(ef.stock.get_belong_board, stock_code)
             
             api_elapsed = _time.time() - api_start

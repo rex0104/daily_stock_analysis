@@ -1113,16 +1113,16 @@ class TushareFetcher(BaseFetcher):
     def get_chip_distribution(self, stock_code: str) -> Optional[ChipDistribution]:
         """
         获取筹码分布数据
-        
+
         数据来源：ts.pro_api().cyq_chips()
         包含：获利比例、平均成本、筹码集中度
-        
+
         注意：ETF/指数没有筹码分布数据，会直接返回 None；港股不支持，直接返回 None。
         5000积分以下每天访问15次,每小时访问5次
-        
+
         Args:
             stock_code: 股票代码
-            
+
         Returns:
             ChipDistribution 对象（最新交易日的数据），获取失败返回 None
 
@@ -1130,7 +1130,7 @@ class TushareFetcher(BaseFetcher):
         if _is_us_code(stock_code):
             logger.warning(f"[Tushare] TushareFetcher 不支持美股 {stock_code} 的筹码分布")
             return None
-        
+
         if _is_etf_code(stock_code):
             logger.warning(f"[Tushare] TushareFetcher 不支持 ETF {stock_code} 的筹码分布")
             return None
@@ -1138,10 +1138,10 @@ class TushareFetcher(BaseFetcher):
         if _is_hk_market(stock_code):
             logger.warning(f"[Tushare] TushareFetcher 不支持港股 {stock_code} 的筹码分布")
             return None
-        
+
         try:
             # 19点之后才有当天数据
-            start_date = self.get_trade_time(early_time='00:00', late_time='19:00') 
+            start_date = self.get_trade_time(early_time='00:00', late_time='19:00')
             if not start_date:
                 return None
 
@@ -1177,7 +1177,7 @@ class TushareFetcher(BaseFetcher):
                     cost_70_high=metrics['70成本-高'],
                     concentration_70=metrics['70集中度'],
                 )
-                
+
                 logger.info(f"[筹码分布] {stock_code} 日期={chip.date}: 获利比例={chip.profit_ratio:.1%}, "
                         f"平均成本={chip.avg_cost}, 90%集中度={chip.concentration_90:.2%}, "
                         f"70%集中度={chip.concentration_70:.2%}")

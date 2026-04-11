@@ -319,6 +319,7 @@ class StockAnalysisPipeline:
                 fundamental_context = self.fetcher_manager.get_fundamental_context(
                     code,
                     budget_seconds=getattr(self.config, 'fundamental_stage_timeout_seconds', 1.5),
+                    realtime_quote=realtime_quote,
                 )
             except Exception as e:
                 logger.warning(f"{stock_name}({code}) 基本面聚合失败: {e}")
