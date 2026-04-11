@@ -691,6 +691,8 @@ class DatabaseManager:
         
         # 创建所有表
         Base.metadata.create_all(self._engine)
+        from src.migration import ensure_schema_current
+        ensure_schema_current(self._engine)
 
         self._initialized = True
         logger.info(f"数据库初始化完成: {db_url}")
