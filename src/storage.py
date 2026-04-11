@@ -624,6 +624,45 @@ class LLMUsage(Base):
     called_at = Column(DateTime, default=datetime.now, index=True)
 
 
+class User(Base):
+    """Registered user account."""
+    __tablename__ = 'users'
+
+    id = Column(String(32), primary_key=True)  # uuid hex
+    email = Column(String(255), unique=True, nullable=False)
+    nickname = Column(String(50))
+    password_hash = Column(String(128), nullable=False)
+    password_salt = Column(String(44), nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+
+class UserWatchlist(Base):
+    """Per-user stock favorites list."""
+    __tablename__ = 'user_watchlists'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(32), nullable=False, index=True)
+    stock_code = Column(String(10), nullable=False)
+    stock_name = Column(String(50))
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'stock_code', name='uix_watchlist_user_stock'),
+    )
+
+
+class SharedReport(Base):
+    """Public share link for an analysis report."""
+    __tablename__ = 'shared_reports'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    share_token = Column(String(22), unique=True, nullable=False)
+    analysis_history_id = Column(Integer, ForeignKey('analysis_history.id'), nullable=False)
+    user_id = Column(String(32), nullable=False)
+    brand_name = Column(String(100))
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+
 class DatabaseManager:
     """
     数据库管理器 - 单例模式
