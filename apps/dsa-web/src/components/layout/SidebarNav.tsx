@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import { BarChart3, BriefcaseBusiness, Home, LogOut, MessageSquareQuote, Settings2 } from 'lucide-react';
+import { BarChart3, BriefcaseBusiness, Home, MessageSquareQuote, Settings2 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
 import { cn } from '../../utils/cn';
-import { ConfirmDialog } from '../common/ConfirmDialog';
 import { StatusDot } from '../common/StatusDot';
 import { ThemeToggle } from '../theme/ThemeToggle';
+import { UserMenu } from '../common/UserMenu';
 
 type SidebarNavProps = {
   collapsed?: boolean;
@@ -32,9 +32,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate }) => {
-  const { loggedIn, logout } = useAuth();
+  const { loggedIn } = useAuth();
   const completionBadge = useAgentChatStore((state) => state.completionBadge);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -101,33 +100,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
       </div>
 
       {loggedIn ? (
-        <button
-          type="button"
-          onClick={() => setShowLogoutConfirm(true)}
-          className={cn(
-            'mt-5 flex h-11 w-full cursor-pointer select-none items-center gap-3 rounded-2xl border border-transparent px-3 text-sm text-secondary-text transition-all hover:border-border/70 hover:bg-hover hover:text-foreground',
-            collapsed ? 'justify-center px-2' : ''
-          )}
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!collapsed ? <span>退出</span> : null}
-        </button>
+        <UserMenu collapsed={collapsed} onNavigate={onNavigate} />
       ) : null}
-
-      <ConfirmDialog
-        isOpen={showLogoutConfirm}
-        title="退出登录"
-        message="确认退出当前登录状态吗？退出后需要重新输入密码。"
-        confirmText="确认退出"
-        cancelText="取消"
-        isDanger
-        onConfirm={() => {
-          setShowLogoutConfirm(false);
-          onNavigate?.();
-          void logout();
-        }}
-        onCancel={() => setShowLogoutConfirm(false)}
-      />
     </div>
   );
 };
