@@ -302,8 +302,7 @@ describe('SettingsPage', () => {
       warnings: [],
     });
     useAuthMock.mockReturnValue({
-      authEnabled: true,
-      passwordChangeable: true,
+      loggedIn: true,
       refreshStatus,
     });
     useSystemConfigMock.mockReturnValue(buildSystemConfigState());
@@ -313,11 +312,10 @@ describe('SettingsPage', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(mockedAnchorClick);
   });
 
-  it('renders category navigation and auth settings modules', async () => {
+  it('renders category navigation and password change module', async () => {
     render(<SettingsPage />);
 
     expect(await screen.findByRole('heading', { name: '系统设置' })).toBeInTheDocument();
-    expect(screen.getByText('认证与登录保护')).toBeInTheDocument();
     expect(screen.getByText('修改密码')).toBeInTheDocument();
     expect(load).toHaveBeenCalled();
   });

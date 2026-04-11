@@ -1,29 +1,25 @@
 import type React from 'react';
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from "motion/react";
-import { Lock, Loader2, Cpu, TrendingUp, Network, Mail } from "lucide-react";
+import { UserPlus, Loader2, Cpu, TrendingUp, Network, Mail } from "lucide-react";
 import { Button, Input, ParticleBackground } from '../components/common';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import type { ParsedApiError } from '../api/error';
 import { isParsedApiError } from '../api/error';
 import { useAuth } from '../hooks';
 import { SettingsAlert } from '../components/settings';
 
-const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+const RegisterPage: React.FC = () => {
+  const { register } = useAuth();
   const navigate = useNavigate();
 
-  // Set page title
   useEffect(() => {
-    document.title = '登录 - DSA';
+    document.title = '注册 - DSA';
   }, []);
-  const [searchParams] = useSearchParams();
-  const rawRedirect = searchParams.get('redirect') ?? '';
-  const redirect =
-    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | ParsedApiError | null>(null);
 
@@ -31,7 +27,6 @@ const LoginPage: React.FC = () => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth out the mouse movement
   const smoothX = useSpring(mouseX, { damping: 30, stiffness: 200 });
   const smoothY = useSpring(mouseY, { damping: 30, stiffness: 200 });
 
@@ -57,13 +52,21 @@ const LoginPage: React.FC = () => {
       setError('请输入密码');
       return;
     }
+    if (password.length < 6) {
+      setError('密码至少 6 位');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('两次输入的密码不一致');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const result = await login(email, password);
+      const result = await register(email, password, passwordConfirm);
       if (result.success) {
-        navigate(redirect, { replace: true });
+        navigate('/', { replace: true });
       } else {
-        setError(result.error ?? '登录失败');
+        setError(result.error ?? '注册失败');
       }
     } finally {
       setIsSubmitting(false);
@@ -153,11 +156,11 @@ const LoginPage: React.FC = () => {
 
             <div className="mb-8">
               <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-[var(--login-text-primary)]">
-                <Lock className="h-5 w-5 text-[var(--login-accent-text)]" />
-                <span>登录</span>
+                <UserPlus className="h-6 w-6 text-emerald-400" />
+                <span>创建账号</span>
               </h1>
               <p className="mt-2 text-sm text-[var(--login-text-secondary)]">
-                访问 DSA 量化决策引擎需要有效的身份凭证。
+                注册一个新账号以访问 DSA 量化决策引擎。
               </p>
             </div>
 
@@ -188,12 +191,26 @@ const LoginPage: React.FC = () => {
                   appearance="login"
                   allowTogglePassword
                   iconType="password"
-                  label="登录密码"
-                  placeholder="请输入密码"
+                  label="密码"
+                  placeholder="请设置 6 位以上密码"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isSubmitting}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
+                />
+
+                <Input
+                  id="passwordConfirm"
+                  type="password"
+                  appearance="login"
+                  allowTogglePassword
+                  iconType="password"
+                  label="确认密码"
+                  placeholder="再次确认密码"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  disabled={isSubmitting}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -204,7 +221,7 @@ const LoginPage: React.FC = () => {
                   className="overflow-hidden"
                 >
                   <SettingsAlert
-                    title="验证未通过"
+                    title="注册失败"
                     message={isParsedApiError(error) ? error.message : error}
                     variant="error"
                     className="!border-[var(--login-error-border)] !bg-[var(--login-error-bg)] !text-[var(--login-error-text)]"
@@ -223,10 +240,10 @@ const LoginPage: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>正在建立连接...</span>
+                      <span>注册中...</span>
                     </>
                   ) : (
-                    <span>授权进入工作台</span>
+                    <span>注册</span>
                   )}
                 </div>
                 <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
@@ -234,12 +251,12 @@ const LoginPage: React.FC = () => {
             </form>
 
             <p className="mt-6 text-center text-sm text-[var(--login-text-secondary)]">
-              还没有账号？
+              已有账号？
               <Link
-                to="/register"
+                to="/login"
                 className="ml-1 font-medium text-[var(--login-accent-text)] hover:underline"
               >
-                注册
+                登录
               </Link>
             </p>
           </div>
@@ -267,4 +284,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;

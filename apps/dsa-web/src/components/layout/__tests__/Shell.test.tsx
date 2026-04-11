@@ -8,7 +8,7 @@ const mockLogout = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    authEnabled: true,
+    loggedIn: true,
     logout: mockLogout,
   }),
 }));

@@ -12,7 +12,7 @@ const completionBadgeState = { value: true };
 
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    authEnabled: true,
+    loggedIn: true,
     logout: mockLogout,
   }),
 }));

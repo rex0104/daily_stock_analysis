@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../LoginPage';
 
@@ -28,35 +29,35 @@ describe('LoginPage', () => {
     useSearchParamsMock.mockReturnValue([new URLSearchParams('redirect=%2Fsettings')]);
   });
 
-  it('blocks first-time setup when confirmation does not match', async () => {
+  it('blocks login when email is empty', async () => {
     const login = vi.fn();
-    useAuthMock.mockReturnValue({
-      login,
-      passwordSet: false,
-      setupState: 'no_password',
-    });
+    useAuthMock.mockReturnValue({ login });
 
-    render(<LoginPage />);
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    );
 
-    fireEvent.change(screen.getByLabelText('管理员密码'), { target: { value: 'passwd6' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: 'passwd7' } });
-    fireEvent.click(screen.getByRole('button', { name: '完成设置并登录' }));
+    fireEvent.change(screen.getByLabelText('登录密码'), { target: { value: 'passwd6' } });
+    fireEvent.click(screen.getByRole('button', { name: '授权进入工作台' }));
 
-    expect(await screen.findByText('两次输入的密码不一致')).toBeInTheDocument();
+    expect(await screen.findByText('请输入邮箱地址')).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('管理员密码')).toHaveAttribute('data-appearance', 'login');
-    expect(screen.getByLabelText('确认密码')).toHaveAttribute('data-appearance', 'login');
   });
 
   it('navigates to redirect after a successful login', async () => {
     useAuthMock.mockReturnValue({
       login: vi.fn().mockResolvedValue({ success: true }),
-      passwordSet: true,
-      setupState: 'enabled',
     });
 
-    render(<LoginPage />);
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    );
 
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'test@example.com' } });
     fireEvent.change(screen.getByLabelText('登录密码'), { target: { value: 'passwd6' } });
     fireEvent.click(screen.getByRole('button', { name: '授权进入工作台' }));
 
@@ -67,11 +68,13 @@ describe('LoginPage', () => {
   it('does not override login theme tokens inline so light mode can take effect', () => {
     useAuthMock.mockReturnValue({
       login: vi.fn(),
-      passwordSet: true,
-      setupState: 'enabled',
     });
 
-    const { container } = render(<LoginPage />);
+    const { container } = render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    );
     const pageRoot = container.firstElementChild as HTMLElement | null;
 
     expect(pageRoot).not.toBeNull();

@@ -5,6 +5,8 @@ import HomePage from './pages/HomePage';
 import BacktestPage from './pages/BacktestPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import SharePage from './pages/SharePage';
 import NotFoundPage from './pages/NotFoundPage';
 import ChatPage from './pages/ChatPage';
 import PortfolioPage from './pages/PortfolioPage';
@@ -15,7 +17,7 @@ import './App.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const { authEnabled, loggedIn, isLoading, loadError, refreshStatus } = useAuth();
+  const { hasUsers, loggedIn, isLoading, loadError, refreshStatus } = useAuth();
 
   useEffect(() => {
     useAgentChatStore.getState().setCurrentRoute(location.pathname);
@@ -46,15 +48,29 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (authEnabled && !loggedIn) {
-    if (location.pathname === '/login') {
-      return <LoginPage />;
+  if (!loggedIn) {
+    if (!hasUsers && location.pathname !== '/register') {
+      return <Navigate to="/register" replace />;
     }
-    const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+    if (
+      hasUsers &&
+      !['/login', '/register'].includes(location.pathname) &&
+      !location.pathname.startsWith('/share/')
+    ) {
+      const redirect = encodeURIComponent(location.pathname + location.search);
+      return <Navigate to={`/login?redirect=${redirect}`} replace />;
+    }
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/share/:token" element={<SharePage />} />
+        <Route path="*" element={<Navigate to={hasUsers ? "/login" : "/register"} replace />} />
+      </Routes>
+    );
   }
 
-  if (location.pathname === '/login') {
+  if (location.pathname === '/login' || location.pathname === '/register') {
     return <Navigate to="/" replace />;
   }
 
@@ -68,7 +84,7 @@ const AppContent: React.FC = () => {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/share/:token" element={<SharePage />} />
     </Routes>
   );
 };

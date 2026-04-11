@@ -1,18 +1,24 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createParsedApiError, getParsedApiError, type ParsedApiError } from '../api/error';
-import { authApi } from '../api/auth';
+import { authApi, type AuthUser } from '../api/auth';
 import { useStockPoolStore } from '../stores';
 
 type AuthContextValue = {
-  authEnabled: boolean;
+  hasUsers: boolean;
   loggedIn: boolean;
-  passwordSet: boolean;
-  passwordChangeable: boolean;
-  setupState: 'enabled' | 'password_retained' | 'no_password';
+  user: AuthUser | null;
   isLoading: boolean;
   loadError: ParsedApiError | null;
-  login: (password: string, passwordConfirm?: string) => Promise<{ success: boolean; error?: ParsedApiError }>;
+  register: (
+    email: string,
+    password: string,
+    passwordConfirm: string
+  ) => Promise<{ success: boolean; error?: ParsedApiError }>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: ParsedApiError }>;
   changePassword: (
     currentPassword: string,
     newPassword: string,
@@ -39,11 +45,9 @@ function extractLoginError(err: unknown): ParsedApiError {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [authEnabled, setAuthEnabled] = useState(false);
+  const [hasUsers, setHasUsers] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [passwordSet, setPasswordSet] = useState(false);
-  const [passwordChangeable, setPasswordChangeable] = useState(false);
-  const [setupState, setSetupState] = useState<'enabled' | 'password_retained' | 'no_password'>('no_password');
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
 
@@ -52,21 +56,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoadError(null);
     try {
       const status = await authApi.getStatus();
-      setAuthEnabled(status.authEnabled);
+      setHasUsers(status.hasUsers);
       setLoggedIn(status.loggedIn);
-      setPasswordSet(status.passwordSet ?? false);
-      setPasswordChangeable(status.passwordChangeable ?? false);
-      setSetupState(status.setupState);
-      if (status.authEnabled && !status.loggedIn) {
+      setUser(status.user ?? null);
+      if (!status.loggedIn) {
         useStockPoolStore.getState().resetDashboardState();
       }
     } catch (err) {
       setLoadError(getParsedApiError(err));
-      setAuthEnabled(false);
+      setHasUsers(false);
       setLoggedIn(false);
-      setPasswordSet(false);
-      setPasswordChangeable(false);
-      setSetupState('no_password');
+      setUser(null);
       useStockPoolStore.getState().resetDashboardState();
     } finally {
       setIsLoading(false);
@@ -77,13 +77,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void fetchStatus();
   }, [fetchStatus]);
 
-  const login = useCallback(
+  const register = useCallback(
     async (
+      email: string,
       password: string,
-      passwordConfirm?: string
+      passwordConfirm: string
     ): Promise<{ success: boolean; error?: ParsedApiError }> => {
       try {
-        await authApi.login(password, passwordConfirm);
+        await authApi.register(email, password, passwordConfirm);
+        await fetchStatus();
+        return { success: true };
+      } catch (err: unknown) {
+        return { success: false, error: getParsedApiError(err) };
+      }
+    },
+    [fetchStatus]
+  );
+
+  const login = useCallback(
+    async (
+      email: string,
+      password: string
+    ): Promise<{ success: boolean; error?: ParsedApiError }> => {
+      try {
+        await authApi.login(email, password);
         await fetchStatus();
         return { success: true };
       } catch (err: unknown) {
@@ -127,13 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        authEnabled,
+        hasUsers,
         loggedIn,
-        passwordSet,
-        passwordChangeable,
-        setupState,
+        user,
         isLoading,
         loadError,
+        register,
         login,
         changePassword,
         logout,
