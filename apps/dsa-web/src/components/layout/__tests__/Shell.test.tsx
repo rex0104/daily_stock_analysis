@@ -9,6 +9,7 @@ const mockLogout = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
     loggedIn: true,
+    user: { id: '1', email: 'test@example.com', nickname: 'Test' },
     logout: mockLogout,
   }),
 }));
@@ -81,7 +82,11 @@ describe('Shell', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '退出' }));
+    // Open user menu dropdown first
+    fireEvent.click(screen.getByRole('button', { name: /test/i, hidden: true }));
+
+    // Click the logout menu item inside the dropdown
+    fireEvent.click(await screen.findByRole('menuitem', { name: /退出登录/ }));
 
     expect(await screen.findByRole('heading', { name: '退出登录' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '确认退出' }));
