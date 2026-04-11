@@ -6,7 +6,9 @@ import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
 import { HistoryList } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
+import { ShareButton } from '../components/share/ShareButton';
 import { TaskPanel } from '../components/tasks';
+import { WatchlistPanel } from '../components/watchlist/WatchlistPanel';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
 
@@ -104,10 +106,22 @@ const HomePage: React.FC = () => {
     setShowDeleteConfirm(false);
   }, [deleteSelectedHistory]);
 
+  const handleWatchlistAnalyze = useCallback(
+    (stockCode: string) => {
+      void submitAnalysis({
+        stockCode,
+        originalQuery: stockCode,
+        selectionSource: 'manual',
+      });
+    },
+    [submitAnalysis],
+  );
+
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
         <TaskPanel tasks={activeTasks} />
+        <WatchlistPanel onAnalyze={handleWatchlistAnalyze} />
         <HistoryList
           items={historyItems}
           isLoading={isLoadingHistory}
@@ -133,6 +147,7 @@ const HomePage: React.FC = () => {
       isLoadingHistory,
       isLoadingMore,
       handleHistoryItemClick,
+      handleWatchlistAnalyze,
       loadMoreHistory,
       selectedIds,
       selectedReport?.meta.id,
@@ -275,6 +290,9 @@ const HomePage: React.FC = () => {
                     </svg>
                     {reportText.fullReport}
                   </Button>
+                  {selectedReport.meta.id !== undefined && (
+                    <ShareButton analysisHistoryId={selectedReport.meta.id} />
+                  )}
                 </div>
                 <ReportSummary data={selectedReport} isHistory />
               </div>
