@@ -7,7 +7,7 @@ import logging
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 
 from api.v1.schemas.common import ErrorResponse
 from api.v1.schemas.portfolio import (
@@ -83,15 +83,16 @@ def _serialize_import_record(item: dict) -> PortfolioImportTradeItem:
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     summary="Create portfolio account",
 )
-def create_account(request: PortfolioAccountCreateRequest) -> PortfolioAccountItem:
+def create_account(request: PortfolioAccountCreateRequest, http_request: Request = None) -> PortfolioAccountItem:
     service = PortfolioService()
+    user_id = getattr(getattr(http_request, "state", None), "user_id", None) if http_request else None
     try:
         row = service.create_account(
             name=request.name,
             broker=request.broker,
             market=request.market,
             base_currency=request.base_currency,
-            owner_id=request.owner_id,
+            owner_id=request.owner_id or user_id,
         )
         return PortfolioAccountItem(**row)
     except ValueError as exc:
@@ -108,10 +109,12 @@ def create_account(request: PortfolioAccountCreateRequest) -> PortfolioAccountIt
 )
 def list_accounts(
     include_inactive: bool = Query(False, description="Whether to include inactive accounts"),
+    request: Request = None,
 ) -> PortfolioAccountListResponse:
     service = PortfolioService()
+    user_id = getattr(getattr(request, "state", None), "user_id", None) if request else None
     try:
-        rows = service.list_accounts(include_inactive=include_inactive)
+        rows = service.list_accounts(include_inactive=include_inactive, owner_id=user_id)
         return PortfolioAccountListResponse(accounts=[PortfolioAccountItem(**item) for item in rows])
     except Exception as exc:
         raise _internal_error("List accounts failed", exc)

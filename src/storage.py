@@ -333,6 +333,9 @@ class BacktestResult(Base):
     simulated_exit_reason = Column(String(24))  # stop_loss/take_profit/window_end/cash/ambiguous_stop_loss
     simulated_return_pct = Column(Float)
 
+    # 多用户隔离
+    user_id = Column(String(32), index=True)
+
     __table_args__ = (
         UniqueConstraint(
             'analysis_history_id',
@@ -387,6 +390,9 @@ class BacktestSummary(Base):
     # 诊断字段（JSON 字符串）
     advice_breakdown_json = Column(Text)
     diagnostics_json = Column(Text)
+
+    # 多用户隔离
+    user_id = Column(String(32), index=True)
 
     __table_args__ = (
         UniqueConstraint(
@@ -628,6 +634,9 @@ class LLMUsage(Base):
     completion_tokens = Column(Integer, nullable=False, default=0)
     total_tokens = Column(Integer, nullable=False, default=0)
     called_at = Column(DateTime, default=datetime.now, index=True)
+
+    # 多用户隔离
+    user_id = Column(String(32), index=True)
 
 
 class User(Base):
@@ -1225,7 +1234,8 @@ class DatabaseManager:
         report_type: str,
         news_content: Optional[str],
         context_snapshot: Optional[Dict[str, Any]] = None,
-        save_snapshot: bool = True
+        save_snapshot: bool = True,
+        user_id: Optional[str] = None,
     ) -> int:
         """
         保存分析结果历史记录
@@ -1259,6 +1269,7 @@ class DatabaseManager:
                         stop_loss=sniper_points.get("stop_loss"),
                         take_profit=sniper_points.get("take_profit"),
                         created_at=datetime.now(),
+                        user_id=user_id,
                     )
                 )
                 return 1
@@ -1277,6 +1288,7 @@ class DatabaseManager:
         days: int = 30,
         limit: int = 50,
         exclude_query_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> List[AnalysisHistory]:
         """
         Query analysis history records.
@@ -1285,6 +1297,7 @@ class DatabaseManager:
         - If query_id is provided, perform exact lookup and ignore days window.
         - If query_id is not provided, apply days-based time filtering.
         - exclude_query_id: exclude records with this query_id (for history comparison).
+        - user_id: when provided, only return records belonging to this user.
         """
         cutoff_date = datetime.now() - timedelta(days=days)
 
@@ -1303,6 +1316,9 @@ class DatabaseManager:
             if exclude_query_id and not query_id:
                 conditions.append(AnalysisHistory.query_id != exclude_query_id)
 
+            if user_id:
+                conditions.append(AnalysisHistory.user_id == user_id)
+
             results = session.execute(
                 select(AnalysisHistory)
                 .where(and_(*conditions))
@@ -1318,26 +1334,28 @@ class DatabaseManager:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         offset: int = 0,
-        limit: int = 20
+        limit: int = 20,
+        user_id: Optional[str] = None,
     ) -> Tuple[List[AnalysisHistory], int]:
         """
         分页查询分析历史记录（带总数）
-        
+
         Args:
             code: 股票代码筛选
             start_date: 开始日期（含）
             end_date: 结束日期（含）
             offset: 偏移量（跳过前 N 条）
             limit: 每页数量
-            
+            user_id: 用户 ID 筛选
+
         Returns:
             Tuple[List[AnalysisHistory], int]: (记录列表, 总数)
         """
         from sqlalchemy import func
-        
+
         with self.get_session() as session:
             conditions = []
-            
+
             if code:
                 conditions.append(AnalysisHistory.code == code)
             if start_date:
@@ -1346,6 +1364,8 @@ class DatabaseManager:
             if end_date:
                 # created_at < end_date+1 00:00:00 (即 <= end_date 23:59:59)
                 conditions.append(AnalysisHistory.created_at < datetime.combine(end_date + timedelta(days=1), datetime.min.time()))
+            if user_id:
+                conditions.append(AnalysisHistory.user_id == user_id)
             
             # 构建 where 子句
             where_clause = and_(*conditions) if conditions else True
@@ -1918,7 +1938,7 @@ class DatabaseManager:
         digest = hashlib.md5(raw_key.encode("utf-8")).hexdigest()
         return f"no-url:{code}:{digest}"
 
-    def save_conversation_message(self, session_id: str, role: str, content: str) -> None:
+    def save_conversation_message(self, session_id: str, role: str, content: str, user_id: Optional[str] = None) -> None:
         """
         保存 Agent 对话消息
         """
@@ -1926,7 +1946,8 @@ class DatabaseManager:
             msg = ConversationMessage(
                 session_id=session_id,
                 role=role,
-                content=content
+                content=content,
+                user_id=user_id,
             )
             session.add(msg)
 
@@ -1958,6 +1979,7 @@ class DatabaseManager:
         limit: int = 50,
         session_prefix: Optional[str] = None,
         extra_session_ids: Optional[List[str]] = None,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         获取聊天会话列表（从 conversation_messages 聚合）
@@ -1969,6 +1991,7 @@ class DatabaseManager:
                 ``"telegram_12345"``).
             extra_session_ids: Optional exact session ids to include in
                 addition to the scoped prefix.
+            user_id: When provided, only return sessions belonging to this user.
 
         Returns:
             按最近活跃时间倒序的会话列表，每条包含 session_id, title, message_count, last_active
@@ -1990,13 +2013,20 @@ class DatabaseManager:
                     func.max(ConversationMessage.created_at).label("last_active"),
                 )
             )
-            conditions = []
+            # Build session-scoping conditions (prefix OR exact_ids)
+            scope_conditions = []
             if normalized_prefix:
-                conditions.append(ConversationMessage.session_id.startswith(normalized_prefix))
+                scope_conditions.append(ConversationMessage.session_id.startswith(normalized_prefix))
             if exact_ids:
-                conditions.append(ConversationMessage.session_id.in_(exact_ids))
-            if conditions:
-                base = base.where(or_(*conditions))
+                scope_conditions.append(ConversationMessage.session_id.in_(exact_ids))
+
+            where_parts = []
+            if scope_conditions:
+                where_parts.append(or_(*scope_conditions))
+            if user_id:
+                where_parts.append(ConversationMessage.user_id == user_id)
+            if where_parts:
+                base = base.where(and_(*where_parts))
             stmt = (
                 base
                 .group_by(ConversationMessage.session_id)
@@ -2031,14 +2061,17 @@ class DatabaseManager:
                 })
             return results
 
-    def get_conversation_messages(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_conversation_messages(self, session_id: str, limit: int = 100, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         获取单个会话的完整消息列表（用于前端恢复历史）
         """
         with self.session_scope() as session:
+            conditions = [ConversationMessage.session_id == session_id]
+            if user_id:
+                conditions.append(ConversationMessage.user_id == user_id)
             stmt = (
                 select(ConversationMessage)
-                .where(ConversationMessage.session_id == session_id)
+                .where(and_(*conditions))
                 .order_by(ConversationMessage.created_at)
                 .limit(limit)
             )
@@ -2053,18 +2086,23 @@ class DatabaseManager:
                 for msg in messages
             ]
 
-    def delete_conversation_session(self, session_id: str) -> int:
+    def delete_conversation_session(self, session_id: str, user_id: Optional[str] = None) -> int:
         """
         删除指定会话的所有消息
+
+        Args:
+            session_id: 会话 ID
+            user_id: 用户 ID，提供时仅删除该用户的会话消息（所有权校验）
 
         Returns:
             删除的消息数
         """
         with self.session_scope() as session:
+            conditions = [ConversationMessage.session_id == session_id]
+            if user_id:
+                conditions.append(ConversationMessage.user_id == user_id)
             result = session.execute(
-                delete(ConversationMessage).where(
-                    ConversationMessage.session_id == session_id
-                )
+                delete(ConversationMessage).where(and_(*conditions))
             )
             return result.rowcount
 

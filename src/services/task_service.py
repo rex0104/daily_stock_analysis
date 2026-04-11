@@ -71,7 +71,8 @@ class TaskService:
         report_type: Union[ReportType, str] = ReportType.SIMPLE,
         source_message: Optional[BotMessage] = None,
         save_context_snapshot: Optional[bool] = None,
-        query_source: str = "bot"
+        query_source: str = "bot",
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         提交异步分析任务
@@ -110,7 +111,8 @@ class TaskService:
             "message": "分析任务已提交，将异步执行并推送通知",
             "code": code,
             "task_id": task_id,
-            "report_type": report_type.value
+            "report_type": report_type.value,
+            "user_id": user_id,
         }
 
     def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -131,11 +133,12 @@ class TaskService:
         code: Optional[str] = None,
         query_id: Optional[str] = None,
         days: int = 30,
-        limit: int = 50
+        limit: int = 50,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """获取分析历史记录"""
         db = get_db()
-        records = db.get_analysis_history(code=code, query_id=query_id, days=days, limit=limit)
+        records = db.get_analysis_history(code=code, query_id=query_id, days=days, limit=limit, user_id=user_id)
         return [r.to_dict() for r in records]
 
     def _run_analysis(
