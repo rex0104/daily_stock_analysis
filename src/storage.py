@@ -650,6 +650,9 @@ class User(Base):
     password_salt = Column(String(44), nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     settings = Column(Text)  # JSON dict of per-user config key-value pairs
+    schedule_enabled = Column(Boolean, nullable=False, default=False, server_default="0")
+    schedule_time = Column(String(5), nullable=False, default="09:15", server_default="09:15")
+    onboarding_completed = Column(Boolean, nullable=False, default=False, server_default="0")
 
 
 class UserWatchlist(Base):

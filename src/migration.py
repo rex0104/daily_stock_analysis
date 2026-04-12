@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
-_CURRENT_VERSION = 3
+_CURRENT_VERSION = 4
 
 
 def ensure_schema_current(engine: Engine) -> None:
@@ -32,6 +32,7 @@ def ensure_schema_current(engine: Engine) -> None:
         (1, _migrate_v1),
         (2, _migrate_v2),
         (3, _migrate_v3),
+        (4, _migrate_v4),
     ]
 
     for ver, fn in migrations:
@@ -117,4 +118,21 @@ def _migrate_v3(engine: Engine) -> None:
         if not _has_column(engine, "user_watchlists", "sort_order"):
             conn.execute(text(
                 "ALTER TABLE user_watchlists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            ))
+
+
+def _migrate_v4(engine: Engine) -> None:
+    """Add schedule and onboarding columns to users table."""
+    with engine.begin() as conn:
+        if not _has_column(engine, "users", "schedule_enabled"):
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN schedule_enabled BOOLEAN NOT NULL DEFAULT 0"
+            ))
+        if not _has_column(engine, "users", "schedule_time"):
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN schedule_time VARCHAR(5) NOT NULL DEFAULT '09:15'"
+            ))
+        if not _has_column(engine, "users", "onboarding_completed"):
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 0"
             ))
