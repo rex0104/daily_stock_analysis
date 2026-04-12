@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
 import { cn } from '../../utils/cn';
 import { StatusDot } from '../common/StatusDot';
-import { ThemeToggle } from '../theme/ThemeToggle';
 import { UserMenu } from '../common/UserMenu';
 
 type SidebarNavProps = {
@@ -95,10 +94,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
           </NavLink>
         ))}
       </nav>
-
-      <div className="mt-4 mb-2">
-        <ThemeToggle variant="nav" collapsed={collapsed} />
-      </div>
 
       {loggedIn ? (
         <UserMenu collapsed={collapsed} onNavigate={onNavigate} />
