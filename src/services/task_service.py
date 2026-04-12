@@ -101,7 +101,8 @@ class TaskService:
             report_type,
             source_message,
             save_context_snapshot,
-            query_source
+            query_source,
+            user_id
         )
 
         logger.info(f"[TaskService] 已提交股票 {code} 的分析任务, task_id={task_id}, report_type={report_type.value}")
@@ -148,7 +149,8 @@ class TaskService:
         report_type: ReportType = ReportType.SIMPLE,
         source_message: Optional[BotMessage] = None,
         save_context_snapshot: Optional[bool] = None,
-        query_source: str = "bot"
+        query_source: str = "bot",
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         执行单只股票分析
@@ -182,7 +184,8 @@ class TaskService:
                 source_message=source_message,
                 query_id=task_id,
                 query_source=query_source,
-                save_context_snapshot=save_context_snapshot
+                save_context_snapshot=save_context_snapshot,
+                user_id=user_id,
             )
 
             # 执行单只股票分析（启用单股推送）
