@@ -1,12 +1,13 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
-import { PageHeader, EmptyState, ConfirmDialog } from '../components/common';
+import { PageHeader, Badge, EmptyState, ConfirmDialog } from '../components/common';
 import { AppPage } from '../components/common/AppPage';
 import { StockAutocomplete } from '../components/StockAutocomplete/StockAutocomplete';
 import { GroupSection } from '../components/watchlist/GroupSection';
 import { watchlistApi, type WatchlistGroup } from '../api/watchlist';
+import { scheduleApi, type ScheduleConfig } from '../api/schedule';
 
 const WatchlistPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const WatchlistPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [addQuery, setAddQuery] = useState('');
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleConfig | null>(null);
 
   // Flat list of group metadata for move-to submenu
   const groupMetas = useMemo(
@@ -41,6 +43,9 @@ const WatchlistPage: React.FC = () => {
   useEffect(() => {
     document.title = '\u6211\u7684\u81EA\u9009 - DSA';
     void fetchEnriched();
+    scheduleApi.get().then(setSchedule).catch(() => {
+      // silently ignore
+    });
   }, [fetchEnriched]);
 
   // --- Handlers ---
@@ -202,22 +207,36 @@ const WatchlistPage: React.FC = () => {
         title={'\u6211\u7684\u81EA\u9009'}
         description={'\u6536\u85CF\u611F\u5174\u8DA3\u7684\u80A1\u7968\uFF0C\u5FEB\u901F\u67E5\u770B\u884C\u60C5\u4E0E\u5206\u6790'}
         actions={
-          <div className="flex items-center gap-2">
-            <div className="w-64">
-              <StockAutocomplete
-                value={addQuery}
-                onChange={setAddQuery}
-                onSubmit={(code, name) => void handleAddStock(code, name)}
-                placeholder={'\u6DFB\u52A0\u80A1\u7968...'}
-              />
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-64">
+                <StockAutocomplete
+                  value={addQuery}
+                  onChange={setAddQuery}
+                  onSubmit={(code, name) => void handleAddStock(code, name)}
+                  placeholder={'\u6DFB\u52A0\u80A1\u7968...'}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateGroup}
+                className="shrink-0 rounded-lg border border-subtle bg-surface/60 px-3 py-2 text-xs text-secondary-text transition-colors hover:border-subtle-hover hover:text-foreground"
+              >
+                + {'\u65B0\u5206\u7EC4'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleCreateGroup}
-              className="shrink-0 rounded-lg border border-subtle bg-surface/60 px-3 py-2 text-xs text-secondary-text transition-colors hover:border-subtle-hover hover:text-foreground"
-            >
-              + {'\u65B0\u5206\u7EC4'}
-            </button>
+            {schedule !== null ? (
+              schedule.enabled ? (
+                <Badge variant="info">\u6BCF\u65E5 {schedule.time} \u81EA\u52A8\u5206\u6790</Badge>
+              ) : (
+                <span className="text-xs text-muted-text">
+                  \u672A\u5F00\u542F\u5B9A\u65F6\uFF0C\u00B7{' '}
+                  <Link to="/settings" className="text-cyan hover:underline">
+                    \u5F00\u542F
+                  </Link>
+                </span>
+              )
+            ) : null}
           </div>
         }
       />

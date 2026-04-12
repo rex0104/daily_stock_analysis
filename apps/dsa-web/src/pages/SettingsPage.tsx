@@ -8,6 +8,7 @@ import {
   ChangePasswordCard,
   IntelligentImport,
   LLMChannelEditor,
+  ScheduleCard,
   SettingsCategoryNav,
   SettingsAlert,
   SettingsField,
@@ -408,6 +409,9 @@ const SettingsPage: React.FC = () => {
                   disabled={isSaving || isLoading}
                 />
               </SettingsSectionCard>
+            ) : null}
+            {activeCategory === 'system' ? (
+              <ScheduleCard />
             ) : null}
             {activeCategory === 'system' && loggedIn ? (
               <ChangePasswordCard />
