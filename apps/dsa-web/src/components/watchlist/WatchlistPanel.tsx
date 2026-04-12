@@ -80,10 +80,6 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
     [updateItems],
   );
 
-  if (!isLoading && items.length === 0) {
-    return null;
-  }
-
   return (
     <Card
       variant="bordered"
@@ -107,6 +103,10 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
       <div className="max-h-48 overflow-y-auto p-2">
         {isLoading ? (
           <DashboardStateBlock loading compact title="加载中..." />
+        ) : items.length === 0 ? (
+          <p className="px-2 py-3 text-center text-xs text-muted-text">
+            还没有自选股，分析后点击 ⭐ 收藏
+          </p>
         ) : (
           <div className="space-y-1.5">
             {items.map((item) => {
