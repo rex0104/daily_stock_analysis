@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
-_CURRENT_VERSION = 2
+_CURRENT_VERSION = 3
 
 
 def ensure_schema_current(engine: Engine) -> None:
@@ -31,6 +31,7 @@ def ensure_schema_current(engine: Engine) -> None:
     migrations: List[tuple] = [
         (1, _migrate_v1),
         (2, _migrate_v2),
+        (3, _migrate_v3),
     ]
 
     for ver, fn in migrations:
@@ -104,3 +105,16 @@ def _migrate_v2(engine: Engine) -> None:
     if not _has_column(engine, "users", "settings"):
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN settings TEXT"))
+
+
+def _migrate_v3(engine: Engine) -> None:
+    """Add group_id and sort_order to user_watchlists for custom grouping."""
+    with engine.begin() as conn:
+        if not _has_column(engine, "user_watchlists", "group_id"):
+            conn.execute(text(
+                "ALTER TABLE user_watchlists ADD COLUMN group_id VARCHAR(32) NOT NULL DEFAULT 'default'"
+            ))
+        if not _has_column(engine, "user_watchlists", "sort_order"):
+            conn.execute(text(
+                "ALTER TABLE user_watchlists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            ))

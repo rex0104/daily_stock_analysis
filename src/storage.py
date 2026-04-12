@@ -661,9 +661,26 @@ class UserWatchlist(Base):
     stock_code = Column(String(10), nullable=False)
     stock_name = Column(String(50))
     created_at = Column(DateTime, default=datetime.now, nullable=False)
+    group_id = Column(String(32), nullable=False, default="default", server_default="default")
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
 
     __table_args__ = (
         UniqueConstraint('user_id', 'stock_code', name='uix_watchlist_user_stock'),
+    )
+
+
+class UserWatchlistGroup(Base):
+    """Custom watchlist group (e.g. 重仓, 观察)."""
+    __tablename__ = 'user_watchlist_groups'
+
+    id = Column(String(32), primary_key=True)  # uuid hex
+    user_id = Column(String(32), nullable=False, index=True)
+    name = Column(String(50), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', name='uix_watchlist_group_user_name'),
     )
 
 
