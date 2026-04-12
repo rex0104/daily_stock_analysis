@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [改进] 认证机制从单管理员密码改为多用户体系，`ADMIN_AUTH_ENABLED` 废弃，认证在首个用户注册后自动生效
 - [改进] 启动时自动检测并执行数据库 schema 迁移（`_schema_version` 版本管理），用户无感知
 - [改进] Shell 侧栏新增用户菜单（显示昵称、修改密码、退出登录），替代旧的单独退出按钮
+- [新功能] 设置页按用户隔离 — 每个用户拥有独立的配置（API Key、模型、通知渠道等），存储在数据库中；第一个注册用户自动继承 `.env` 配置；后续用户默认值来自 `.env.example`
 - [修复] 大盘复盘链路接入 `REPORT_LANGUAGE`：`REPORT_LANGUAGE=en` 时，A 股/合并复盘的 Prompt、章节标题、模板兜底文案与通知包装标题统一改为英文，避免出现英文正文外包中文标题的问题。
 - [修复] `AGENT_MAX_STEPS` 在 orchestrator 多 Agent 模式下统一明确为“默认作为各子 Agent 的步数上限而非硬覆盖；TechnicalAgent 等高默认值 Agent 会被封顶、低默认值 Agent 保持原值；当用户主动调高（>10）时，再统一覆盖所有子 Agent 采用全局值”，同时修复用户设置 12 但 TechnicalAgent 仍以默认 6 步运行并报 "Agent exceeded max steps" 的问题（fixes #1026）
 - [修复] Specialist（Skill）Agent 失败不再中断整个分析管线，改为与 intel/risk 相同的优雅降级策略
