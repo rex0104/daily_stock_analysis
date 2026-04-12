@@ -238,6 +238,7 @@ async def auth_status(request: Request):
 
     logged_in = False
     user_info = None
+    onboarding_completed = False
 
     if has_users:
         cookie_val = request.cookies.get(COOKIE_NAME)
@@ -246,11 +247,21 @@ async def auth_status(request: Request):
             if user_id:
                 user_info = svc.get_user(user_id)
                 logged_in = user_info is not None
+                if logged_in:
+                    try:
+                        from src.storage import DatabaseManager, User as UserModel
+                        db = DatabaseManager.get_instance()
+                        with db.get_session() as session:
+                            user_row = session.query(UserModel).filter_by(id=user_id).first()
+                            onboarding_completed = bool(user_row.onboarding_completed) if user_row else False
+                    except Exception:
+                        pass
 
     return {
         "hasUsers": has_users,
         "loggedIn": logged_in,
         "user": user_info,
+        "onboardingCompleted": onboarding_completed,
     }
 
 
