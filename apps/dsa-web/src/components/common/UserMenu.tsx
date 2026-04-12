@@ -57,24 +57,26 @@ export const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, onNavigat
 
   return (
     <>
-      <div ref={menuRef} className="relative mt-2">
-        {/* Trigger button */}
+      <div ref={menuRef} className="relative border-t border-border/40 pt-2">
+        {/* Trigger button — matches nav item sizing */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           aria-haspopup="menu"
           aria-expanded={open}
           className={cn(
-            'flex w-full cursor-pointer select-none items-center gap-2.5 rounded-2xl border border-transparent px-2 py-2 text-sm text-secondary-text transition-all hover:border-border/70 hover:bg-hover hover:text-foreground',
-            collapsed ? 'justify-center' : ''
+            'flex w-full cursor-pointer select-none items-center gap-3 text-sm text-secondary-text transition-all',
+            'h-[var(--nav-item-height)]',
+            collapsed ? 'justify-center px-0' : 'px-[var(--nav-item-padding-x)]',
+            'hover:bg-[var(--nav-hover-bg)] hover:text-foreground rounded-lg',
           )}
         >
           {/* Avatar circle */}
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-[hsl(var(--primary-foreground))] text-xs font-semibold">
+          <span className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-[hsl(var(--primary-foreground))] text-[10px] font-semibold">
             {initials}
           </span>
           {!collapsed && (
-            <span className="min-w-0 truncate text-xs font-medium">{user.nickname || user.email}</span>
+            <span className="min-w-0 truncate">{user.nickname || user.email}</span>
           )}
         </button>
 
