@@ -73,13 +73,16 @@ class WatchlistEnrichmentService:
                     "sort_order": g.sort_order,
                 }
 
-            # 3. Batch fetch stock_daily (last N rows per stock, ordered by date desc)
+            # 3. Batch fetch stock_daily for sparkline (historical)
             price_map = self._fetch_prices(session, codes)
 
-            # 4. Batch fetch analysis_history (last 5 per stock for this user)
+            # 4. Fetch realtime quotes to get current prices
+            realtime_map = self._fetch_realtime_quotes(codes)
+
+            # 5. Batch fetch analysis_history (last 5 per stock for this user)
             analysis_map = self._fetch_analyses(session, user_id, codes)
 
-            # 5. Batch fetch portfolio_positions
+            # 6. Batch fetch portfolio_positions
             position_map = self._fetch_positions(session, user_id, codes)
 
             # 6. Assemble items into groups
@@ -96,7 +99,16 @@ class WatchlistEnrichmentService:
                         "sort_order": 999,
                     }
 
-                price_info = price_map.get(code)
+                # Prefer realtime quote; fall back to stock_daily
+                rt = realtime_map.get(code)
+                daily = price_map.get(code)
+                if rt:
+                    price_info = {"close": rt["price"], "pct_chg": rt["pct_chg"]}
+                elif daily:
+                    price_info = {"close": daily["close"], "pct_chg": daily["pct_chg"]}
+                else:
+                    price_info = None
+
                 analysis_rows = analysis_map.get(code, [])
                 position_info = position_map.get(code)
 
@@ -129,7 +141,7 @@ class WatchlistEnrichmentService:
                     "price": price_info,
                     "analysis": latest_analysis,
                     "position": position_info,
-                    "sparkline": price_map.get(code, {}).get("_sparkline", []) if price_info else [],
+                    "sparkline": (daily or {}).get("_sparkline", []),
                     "history_timeline": history_timeline,
                 })
 
@@ -151,6 +163,27 @@ class WatchlistEnrichmentService:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fetch_realtime_quotes(codes: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Fetch realtime quotes for all codes via DataFetcher (auto fallback chain)."""
+        result: Dict[str, Dict[str, Any]] = {}
+        try:
+            from data_provider.base import DataFetcher
+            fetcher = DataFetcher()
+            for code in codes:
+                try:
+                    quote = fetcher.get_realtime_quote(code, log_final_failure=False)
+                    if quote and quote.price is not None:
+                        result[code] = {
+                            "price": quote.price,
+                            "pct_chg": quote.change_pct,
+                        }
+                except Exception:
+                    logger.debug("Realtime quote failed for %s, skipping", code)
+        except Exception:
+            logger.warning("DataFetcher not available, skipping realtime quotes")
+        return result
 
     @staticmethod
     def _fetch_prices(session, codes: List[str]) -> Dict[str, Any]:
