@@ -395,6 +395,7 @@ class AnalysisTaskQueue:
                         report_type,
                         force_refresh,
                         notify,
+                        user_id,
                     )
                 except Exception:
                     # Roll back the current batch to avoid partial submission.
@@ -536,6 +537,7 @@ class AnalysisTaskQueue:
         report_type: str,
         force_refresh: bool,
         notify: bool = True,
+        user_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         执行分析任务（在线程池中运行）
@@ -578,6 +580,7 @@ class AnalysisTaskQueue:
                 query_id=task_id,
                 send_notification=notify,
                 progress_callback=_on_progress,
+                user_id=user_id,
             )
             
             if result:
