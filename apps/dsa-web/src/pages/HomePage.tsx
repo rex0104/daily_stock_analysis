@@ -8,9 +8,6 @@ import { HistoryList } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
 import { ShareButton } from '../components/share/ShareButton';
 import { TaskPanel } from '../components/tasks';
-import { WatchlistPanel } from '../components/watchlist/WatchlistPanel';
-import { watchlistApi } from '../api/watchlist';
-import type { WatchlistItem } from '../api/watchlist';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
 
@@ -18,7 +15,6 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
 
   const {
     query,
@@ -109,49 +105,10 @@ const HomePage: React.FC = () => {
     setShowDeleteConfirm(false);
   }, [deleteSelectedHistory]);
 
-  const watchlistCodes = useMemo(
-    () => new Set(watchlistItems.map((item) => item.stockCode)),
-    [watchlistItems],
-  );
-
-  const handleWatchlistAnalyze = useCallback(
-    (stockCode: string) => {
-      void submitAnalysis({
-        stockCode,
-        originalQuery: stockCode,
-        selectionSource: 'manual',
-      });
-    },
-    [submitAnalysis],
-  );
-
-  const handleToggleWatchlist = useCallback(
-    async (stockCode: string, stockName: string | undefined, inWatchlist: boolean) => {
-      if (inWatchlist) {
-        await watchlistApi.remove(stockCode).catch(() => undefined);
-        setWatchlistItems((prev) => prev.filter((item) => item.stockCode !== stockCode));
-      } else {
-        const added = await watchlistApi.add(stockCode, stockName).catch(() => undefined);
-        if (added) {
-          setWatchlistItems((prev) => {
-            if (prev.some((item) => item.stockCode === added.stockCode)) return prev;
-            return [added, ...prev];
-          });
-        }
-      }
-    },
-    [],
-  );
-
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
         <TaskPanel tasks={activeTasks} />
-        <WatchlistPanel
-          onAnalyze={handleWatchlistAnalyze}
-          items={watchlistItems}
-          onItemsChange={setWatchlistItems}
-        />
         <HistoryList
           items={historyItems}
           isLoading={isLoadingHistory}
@@ -166,10 +123,6 @@ const HomePage: React.FC = () => {
           onToggleSelectAll={toggleSelectAllVisible}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
           className="flex-1 overflow-hidden"
-          watchlistCodes={watchlistCodes}
-          onToggleWatchlist={(stockCode, stockName, inWatchlist) => {
-            void handleToggleWatchlist(stockCode, stockName, inWatchlist);
-          }}
         />
       </div>
     ),
@@ -181,15 +134,11 @@ const HomePage: React.FC = () => {
       isLoadingHistory,
       isLoadingMore,
       handleHistoryItemClick,
-      handleToggleWatchlist,
-      handleWatchlistAnalyze,
       loadMoreHistory,
       selectedIds,
       selectedReport?.meta.id,
       toggleHistorySelection,
       toggleSelectAllVisible,
-      watchlistCodes,
-      watchlistItems,
     ],
   );
 
