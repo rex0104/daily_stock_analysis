@@ -169,8 +169,8 @@ class WatchlistEnrichmentService:
         """Fetch realtime quotes for all codes via DataFetcher (auto fallback chain)."""
         result: Dict[str, Dict[str, Any]] = {}
         try:
-            from data_provider.base import DataFetcher
-            fetcher = DataFetcher()
+            from data_provider.base import DataFetcherManager
+            fetcher = DataFetcherManager()
             for code in codes:
                 try:
                     quote = fetcher.get_realtime_quote(code, log_final_failure=False)
