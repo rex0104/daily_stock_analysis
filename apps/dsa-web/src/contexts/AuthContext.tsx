@@ -8,8 +8,10 @@ type AuthContextValue = {
   hasUsers: boolean;
   loggedIn: boolean;
   user: AuthUser | null;
+  onboardingCompleted: boolean;
   isLoading: boolean;
   loadError: ParsedApiError | null;
+  setOnboardingCompleted: (value: boolean) => void;
   register: (
     email: string,
     password: string,
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasUsers, setHasUsers] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
 
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setHasUsers(status.hasUsers);
       setLoggedIn(status.loggedIn);
       setUser(status.user ?? null);
+      setOnboardingCompleted(status.onboardingCompleted ?? false);
       if (!status.loggedIn) {
         useStockPoolStore.getState().resetDashboardState();
       }
@@ -67,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setHasUsers(false);
       setLoggedIn(false);
       setUser(null);
+      setOnboardingCompleted(false);
       useStockPoolStore.getState().resetDashboardState();
     } finally {
       setIsLoading(false);
@@ -147,8 +152,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasUsers,
         loggedIn,
         user,
+        onboardingCompleted,
         isLoading,
         loadError,
+        setOnboardingCompleted,
         register,
         login,
         changePassword,

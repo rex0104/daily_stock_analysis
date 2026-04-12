@@ -10,6 +10,7 @@ export type AuthStatusResponse = {
   hasUsers: boolean;
   loggedIn: boolean;
   user: AuthUser | null;
+  onboardingCompleted: boolean;
 };
 
 export const authApi = {

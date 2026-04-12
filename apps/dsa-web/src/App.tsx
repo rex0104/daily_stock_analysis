@@ -6,6 +6,7 @@ import BacktestPage from './pages/BacktestPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OnboardingPage from './pages/OnboardingPage';
 import SharePage from './pages/SharePage';
 import WatchlistPage from './pages/WatchlistPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -18,7 +19,7 @@ import './App.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const { hasUsers, loggedIn, isLoading, loadError, refreshStatus } = useAuth();
+  const { hasUsers, loggedIn, onboardingCompleted, isLoading, loadError, refreshStatus } = useAuth();
 
   useEffect(() => {
     useAgentChatStore.getState().setCurrentRoute(location.pathname);
@@ -75,8 +76,14 @@ const AppContent: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
+  // Redirect to onboarding if not completed (unless already on /onboarding)
+  if (!onboardingCompleted && location.pathname !== '/onboarding' && !location.pathname.startsWith('/share/')) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <Routes>
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route element={<Shell />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/watchlist" element={<WatchlistPage />} />
