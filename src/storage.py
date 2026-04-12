@@ -649,6 +649,7 @@ class User(Base):
     password_hash = Column(String(128), nullable=False)
     password_salt = Column(String(44), nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
+    settings = Column(Text)  # JSON dict of per-user config key-value pairs
 
 
 class UserWatchlist(Base):

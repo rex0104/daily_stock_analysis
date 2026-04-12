@@ -54,7 +54,40 @@ def claim_orphan_data(session_factory: sessionmaker, user_id: str) -> None:
     except Exception:
         logger.exception("Failed to claim orphan data for user %s", user_id)
 
+    _migrate_env_to_user_settings(session_factory, user_id)
     _cleanup_old_auth_files()
+
+
+def _migrate_env_to_user_settings(session_factory: sessionmaker, user_id: str) -> None:
+    """Copy current .env values into the first user's settings column."""
+    import json
+
+    from dotenv import dotenv_values
+    from src.storage import User
+
+    env_path = (
+        Path(os.getenv("ENV_FILE")).resolve()
+        if os.getenv("ENV_FILE")
+        else Path(__file__).resolve().parent.parent.parent / ".env"
+    )
+    if not env_path.exists():
+        return
+
+    env_values = dotenv_values(env_path)
+    settings = {k: v for k, v in env_values.items() if v is not None and v.strip()}
+
+    if not settings:
+        return
+
+    try:
+        with session_factory() as session:
+            user = session.query(User).filter_by(id=user_id).first()
+            if user:
+                user.settings = json.dumps(settings, ensure_ascii=False)
+                session.commit()
+                logger.info("Migrated %d .env settings to first user", len(settings))
+    except Exception:
+        logger.exception("Failed to migrate .env settings for user %s", user_id)
 
 
 def _cleanup_old_auth_files() -> None:

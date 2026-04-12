@@ -8,7 +8,7 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.deps import get_system_config_service
+from api.deps import get_system_config_service, get_user_config_service
 from api.v1.schemas.common import ErrorResponse
 from api.v1.schemas.system_config import (
     DiscoverLLMChannelModelsRequest,
@@ -63,7 +63,7 @@ def _ensure_desktop_mode() -> None:
 )
 def get_system_config(
     include_schema: bool = Query(True, description="Whether to include schema metadata"),
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> SystemConfigResponse:
     """Load and return current system configuration."""
     try:
@@ -94,7 +94,7 @@ def get_system_config(
 )
 def update_system_config(
     request: UpdateSystemConfigRequest,
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> UpdateSystemConfigResponse:
     """Validate and persist system configuration updates."""
     try:
@@ -253,7 +253,7 @@ def import_desktop_system_config(
 )
 def validate_system_config(
     request: ValidateSystemConfigRequest,
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> ValidateSystemConfigResponse:
     """Run pre-save validation only."""
     try:
@@ -282,7 +282,7 @@ def validate_system_config(
 )
 def test_llm_channel(
     request: TestLLMChannelRequest,
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> TestLLMChannelResponse:
     """Validate and test one channel definition without writing `.env`."""
     try:
@@ -327,7 +327,7 @@ def test_llm_channel(
 )
 def discover_llm_channel_models(
     request: DiscoverLLMChannelModelsRequest,
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> DiscoverLLMChannelModelsResponse:
     """Discover models for one channel definition without writing `.env`."""
     try:
@@ -370,7 +370,7 @@ def discover_llm_channel_models(
     description="Return categorized field metadata used for dynamic settings form rendering.",
 )
 def get_system_config_schema(
-    service: SystemConfigService = Depends(get_system_config_service),
+    service: SystemConfigService = Depends(get_user_config_service),
 ) -> SystemConfigSchemaResponse:
     """Return schema metadata for system configuration fields."""
     try:

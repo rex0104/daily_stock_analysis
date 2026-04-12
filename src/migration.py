@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
-_CURRENT_VERSION = 1
+_CURRENT_VERSION = 2
 
 
 def ensure_schema_current(engine: Engine) -> None:
@@ -30,6 +30,7 @@ def ensure_schema_current(engine: Engine) -> None:
 
     migrations: List[tuple] = [
         (1, _migrate_v1),
+        (2, _migrate_v2),
     ]
 
     for ver, fn in migrations:
@@ -96,3 +97,10 @@ def _migrate_v1(engine: Engine) -> None:
                 conn.execute(text(
                     f"CREATE INDEX IF NOT EXISTS ix_{table}_user_id ON {table} (user_id)"
                 ))
+
+
+def _migrate_v2(engine: Engine) -> None:
+    """Add settings column to users table for per-user config storage."""
+    if not _has_column(engine, "users", "settings"):
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN settings TEXT"))
