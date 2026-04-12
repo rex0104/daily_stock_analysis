@@ -35,6 +35,7 @@ export type WatchlistTimelineEntry = {
   date: string;
   sentimentScore: number;
   operationAdvice: string;
+  analysisSummary: string | null;
 };
 
 export type EnrichedWatchlistItem = {

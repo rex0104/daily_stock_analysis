@@ -112,6 +112,7 @@ class WatchlistEnrichmentService:
                         "date": a.created_at.strftime("%Y-%m-%d") if a.created_at else None,
                         "sentiment_score": a.sentiment_score,
                         "operation_advice": a.operation_advice,
+                        "analysis_summary": a.analysis_summary,
                     }
                     for a in analysis_rows
                 ]
