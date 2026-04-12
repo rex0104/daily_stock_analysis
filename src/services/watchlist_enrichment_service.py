@@ -23,9 +23,12 @@ _HISTORY_LIMIT = 5
 
 
 def _detect_market(code: str) -> str:
-    if code.lower().startswith("hk"):
+    lower = code.lower()
+    if lower.startswith("hk"):
         return "hk"
-    if code.isdigit() and len(code) == 6:
+    # A-share: 6-digit with optional .SZ/.SH/.BJ suffix
+    base = lower.split(".")[0]
+    if base.isdigit() and len(base) == 6:
         return "cn"
     return "us"
 

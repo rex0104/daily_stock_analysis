@@ -16,9 +16,6 @@ export type SharedReport = ShareResult & {
   operationAdvice: string;
   trendPrediction: string;
   analysisSummary: string;
-  rawResult: string;
-  newsContent: string;
-  contextSnapshot: string;
   idealBuy: number | null;
   secondaryBuy: number | null;
   stopLoss: number | null;
