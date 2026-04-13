@@ -82,6 +82,11 @@ class UserScheduleService:
         _inject_user_settings(user_settings)
 
         try:
+            # Reset Config singleton so it picks up injected user settings
+            from src.config import Config, setup_env
+            Config.reset_instance()
+            setup_env(override=True)
+
             from src.services.analysis_service import AnalysisService
             service = AnalysisService()
             results = []
@@ -104,6 +109,10 @@ class UserScheduleService:
             }
         finally:
             _restore_env(user_settings)
+            # Reset Config back to platform defaults
+            from src.config import Config, setup_env
+            Config.reset_instance()
+            setup_env(override=True)
 
 
 def _valid_time(t: str) -> bool:
