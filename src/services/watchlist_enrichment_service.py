@@ -164,25 +164,58 @@ class WatchlistEnrichmentService:
     # Private helpers
     # ------------------------------------------------------------------
 
+    # In-memory cache: {code: {"price": ..., "pct_chg": ..., "_ts": timestamp}}
+    _quote_cache: Dict[str, Dict[str, Any]] = {}
+    _CACHE_TTL = 60  # seconds
+
     @staticmethod
     def _fetch_realtime_quotes(codes: List[str]) -> Dict[str, Dict[str, Any]]:
-        """Fetch realtime quotes for all codes via DataFetcher (auto fallback chain)."""
+        """Fetch realtime quotes in parallel with 60s cache."""
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        now = time.time()
         result: Dict[str, Dict[str, Any]] = {}
+        codes_to_fetch: List[str] = []
+
+        # Check cache first
+        for code in codes:
+            cached = WatchlistEnrichmentService._quote_cache.get(code)
+            if cached and (now - cached.get("_ts", 0)) < WatchlistEnrichmentService._CACHE_TTL:
+                result[code] = {"price": cached["price"], "pct_chg": cached["pct_chg"]}
+            else:
+                codes_to_fetch.append(code)
+
+        if not codes_to_fetch:
+            return result
+
         try:
             from data_provider.base import DataFetcherManager
             fetcher = DataFetcherManager()
-            for code in codes:
+
+            def _fetch_one(code: str):
                 try:
                     quote = fetcher.get_realtime_quote(code, log_final_failure=False)
                     if quote and quote.price is not None:
-                        result[code] = {
-                            "price": quote.price,
-                            "pct_chg": quote.change_pct,
-                        }
+                        return code, {"price": quote.price, "pct_chg": quote.change_pct}
                 except Exception:
-                    logger.debug("Realtime quote failed for %s, skipping", code)
+                    pass
+                return code, None
+
+            with ThreadPoolExecutor(max_workers=min(len(codes_to_fetch), 5)) as pool:
+                futures = {pool.submit(_fetch_one, c): c for c in codes_to_fetch}
+                for future in as_completed(futures, timeout=15):
+                    try:
+                        code, data = future.result()
+                        if data:
+                            data["_ts"] = now
+                            WatchlistEnrichmentService._quote_cache[code] = data
+                            result[code] = {"price": data["price"], "pct_chg": data["pct_chg"]}
+                    except Exception:
+                        pass
         except Exception:
             logger.warning("DataFetcher not available, skipping realtime quotes")
+
         return result
 
     @staticmethod
