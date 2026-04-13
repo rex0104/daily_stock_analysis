@@ -23,7 +23,7 @@ import re
 from datetime import datetime
 from typing import Optional, Union, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.deps import get_config_dep
@@ -141,26 +141,28 @@ def _resolve_and_normalize_input(raw_value: str) -> str:
 )
 def trigger_analysis(
         request: AnalyzeRequest,
-        config: Config = Depends(get_config_dep)
+        config: Config = Depends(get_config_dep),
+        http_request: Request = None,
 ) -> Union[AnalysisResultResponse, JSONResponse]:
     """
     触发股票分析
-    
+
     启动 AI 智能分析任务，支持单只或多只股票批量分析
-    
+
     流程：
     1. 校验请求参数
     2. 异步模式：检查重复 -> 提交任务队列 -> 返回 202
     3. 同步模式：直接执行分析 -> 返回 200
-    
+
     Args:
         request: 分析请求参数
         config: 配置依赖
-        
+        http_request: HTTP request (injected by FastAPI; used to extract user_id)
+
     Returns:
         AnalysisResultResponse: 分析结果（同步模式）
         TaskAccepted | BatchTaskAcceptedResponse: 任务已接受（异步模式，返回 202）
-        
+
     Raises:
         HTTPException: 400 - 请求参数错误
         HTTPException: 409 - 股票正在分析中
@@ -218,6 +220,8 @@ def trigger_analysis(
             }
         )
 
+    user_id = getattr(getattr(http_request, "state", None), "user_id", None) if http_request else None
+
     # Sync mode only supports single-stock analysis.
     if not request.async_mode:
         if len(stock_codes) > 1:
@@ -228,15 +232,16 @@ def trigger_analysis(
                     "message": "同步模式仅支持单只股票分析，请使用 async_mode=true 进行批量分析"
                 }
             )
-        return _handle_sync_analysis(stock_codes[0], request)
+        return _handle_sync_analysis(stock_codes[0], request, user_id=user_id)
 
     # Async mode submits one task per stock.
-    return _handle_async_analysis_batch(stock_codes, request)
+    return _handle_async_analysis_batch(stock_codes, request, user_id=user_id)
 
 
 def _handle_async_analysis_batch(
     stock_codes: list,
-    request: AnalyzeRequest
+    request: AnalyzeRequest,
+    user_id: Optional[str] = None,
 ) -> JSONResponse:
     """
     Handle asynchronous analysis requests, including batch submission.
@@ -262,6 +267,7 @@ def _handle_async_analysis_batch(
         report_type=request.report_type,
         force_refresh=request.force_refresh,
         notify=notify,
+        user_id=user_id,
     )
 
     accepted_tasks, duplicate_errors = task_queue.submit_tasks_batch(**submit_kwargs)
@@ -324,7 +330,8 @@ def _handle_async_analysis_batch(
 
 def _handle_sync_analysis(
     stock_code: str,
-    request: AnalyzeRequest
+    request: AnalyzeRequest,
+    user_id: Optional[str] = None,
 ) -> AnalysisResultResponse:
     """
     处理同步分析请求
@@ -344,6 +351,7 @@ def _handle_sync_analysis(
             force_refresh=request.force_refresh,
             query_id=query_id,
             send_notification=getattr(request, "notify", True),
+            user_id=user_id,
         )
 
         if result is None:

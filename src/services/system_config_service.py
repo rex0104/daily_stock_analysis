@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import logging
 import json
+import os
 import re
 import time
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
@@ -79,7 +80,7 @@ class SystemConfigService:
         }
     }
 
-    def __init__(self, manager: Optional[ConfigManager] = None):
+    def __init__(self, manager=None):
         self._manager = manager or ConfigManager()
 
     def get_schema(self) -> Dict[str, Any]:
@@ -534,6 +535,15 @@ class SystemConfigService:
         reload_triggered = False
         if reload_now:
             try:
+                # When backed by per-user DB storage, inject settings into
+                # os.environ so the global Config singleton picks them up.
+                from src.core.user_config_manager import UserConfigManager
+
+                if isinstance(self._manager, UserConfigManager):
+                    user_settings = self._manager.read_config_map()
+                    for k, v in user_settings.items():
+                        os.environ[k] = v
+
                 Config.reset_instance()
                 self._reload_runtime_singletons()
                 setup_env(override=True)

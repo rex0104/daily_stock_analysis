@@ -12,6 +12,8 @@ interface HistoryListItemProps {
   isDeleting: boolean;
   onToggleChecked: (recordId: number) => void;
   onClick: (recordId: number) => void;
+  isInWatchlist?: boolean;
+  onToggleWatchlist?: (stockCode: string, stockName: string | undefined, inWatchlist: boolean) => void;
 }
 
 const getOperationBadgeLabel = (advice?: string) => {
@@ -41,6 +43,8 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({
   isDeleting,
   onToggleChecked,
   onClick,
+  isInWatchlist = false,
+  onToggleWatchlist,
 }) => {
   const sentimentColor = item.sentimentScore !== undefined ? getSentimentColor(item.sentimentScore) : null;
   const stockName = item.stockName || item.stockCode;
@@ -57,6 +61,25 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({
           className="h-3.5 w-3.5 cursor-pointer rounded border-subtle-hover bg-transparent accent-primary focus:ring-primary/30 disabled:opacity-50"
         />
       </div>
+      {onToggleWatchlist && (
+        <div className="pt-[1.1rem]">
+          <button
+            type="button"
+            onClick={() => onToggleWatchlist(item.stockCode, item.stockName ?? undefined, isInWatchlist)}
+            aria-label={isInWatchlist ? '取消自选' : '添加自选'}
+            className={`rounded p-0.5 transition-colors ${
+              isInWatchlist
+                ? 'text-amber-400 opacity-100'
+                : 'text-muted-text opacity-0 group-hover:opacity-100 hover:text-amber-400'
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" fill={isInWatchlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={isInWatchlist ? 0 : 2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => onClick(item.id)}

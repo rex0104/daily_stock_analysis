@@ -27,10 +27,13 @@ def client():
 
 @pytest.fixture(autouse=True)
 def disable_auth():
-    """Keep analysis integration tests independent from local auth env state."""
+    """Keep analysis integration tests independent from local auth env state.
+
+    The multi-user middleware skips auth when no users exist, so we patch
+    ``has_users`` to always return False.
+    """
     auth._auth_enabled = None
-    with patch("api.middlewares.auth.is_auth_enabled", return_value=False), \
-         patch("src.auth.is_auth_enabled", return_value=False):
+    with patch("api.middlewares.auth.has_users", return_value=False):
         yield
     auth._auth_enabled = None
 

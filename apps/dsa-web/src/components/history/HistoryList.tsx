@@ -19,6 +19,8 @@ interface HistoryListProps {
   onToggleSelectAll: () => void;
   onDeleteSelected: () => void;
   className?: string;
+  watchlistCodes?: Set<string>;
+  onToggleWatchlist?: (stockCode: string, stockName: string | undefined, inWatchlist: boolean) => void;
 }
 
 /**
@@ -39,6 +41,8 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   onToggleSelectAll,
   onDeleteSelected,
   className = '',
+  watchlistCodes,
+  onToggleWatchlist,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -170,6 +174,8 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                 isDeleting={isDeleting}
                 onToggleChecked={onToggleItemSelection}
                 onClick={onItemClick}
+                isInWatchlist={watchlistCodes?.has(item.stockCode)}
+                onToggleWatchlist={onToggleWatchlist}
               />
             ))}
 

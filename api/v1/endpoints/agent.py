@@ -9,7 +9,7 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
@@ -205,10 +205,11 @@ class SessionMessagesResponse(BaseModel):
 
 
 @router.get("/chat/sessions", response_model=SessionsResponse)
-async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
+async def list_chat_sessions(request: Request, limit: int = 50, user_id: Optional[str] = None):
     """获取聊天会话列表
 
     Args:
+        request: HTTP request (used to extract authenticated user_id).
         limit: Maximum number of sessions to return.
         user_id: Optional platform-prefixed user identifier for session
             isolation.  When provided, only sessions whose session_id
@@ -217,27 +218,31 @@ async def list_chat_sessions(limit: int = 50, user_id: Optional[str] = None):
             ``feishu_ou_abc``.
     """
     from src.storage import get_db
+    auth_user_id = getattr(request.state, "user_id", None)
     sessions = get_db().get_chat_sessions(
         limit=limit,
         session_prefix=user_id,
         extra_session_ids=[user_id] if user_id else None,
+        user_id=auth_user_id,
     )
     return SessionsResponse(sessions=sessions)
 
 
 @router.get("/chat/sessions/{session_id}", response_model=SessionMessagesResponse)
-async def get_chat_session_messages(session_id: str, limit: int = 100):
+async def get_chat_session_messages(request: Request, session_id: str, limit: int = 100):
     """获取单个会话的完整消息"""
     from src.storage import get_db
-    messages = get_db().get_conversation_messages(session_id, limit=limit)
+    auth_user_id = getattr(request.state, "user_id", None)
+    messages = get_db().get_conversation_messages(session_id, limit=limit, user_id=auth_user_id)
     return SessionMessagesResponse(session_id=session_id, messages=messages)
 
 
 @router.delete("/chat/sessions/{session_id}")
-async def delete_chat_session(session_id: str):
+async def delete_chat_session(request: Request, session_id: str):
     """删除指定会话"""
     from src.storage import get_db
-    count = get_db().delete_conversation_session(session_id)
+    auth_user_id = getattr(request.state, "user_id", None)
+    count = get_db().delete_conversation_session(session_id, user_id=auth_user_id)
     return {"deleted": count}
 
 

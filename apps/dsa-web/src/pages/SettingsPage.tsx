@@ -5,10 +5,10 @@ import { createParsedApiError, getParsedApiError, type ParsedApiError } from '..
 import { systemConfigApi } from '../api/systemConfig';
 import { ApiErrorAlert, Button, ConfirmDialog, EmptyState } from '../components/common';
 import {
-  AuthSettingsCard,
   ChangePasswordCard,
   IntelligentImport,
   LLMChannelEditor,
+  ScheduleCard,
   SettingsCategoryNav,
   SettingsAlert,
   SettingsField,
@@ -34,7 +34,7 @@ function formatDesktopEnvFilename() {
 }
 
 const SettingsPage: React.FC = () => {
-  const { passwordChangeable } = useAuth();
+  const { loggedIn } = useAuth();
   const [desktopActionError, setDesktopActionError] = useState<ParsedApiError | null>(null);
   const [desktopActionSuccess, setDesktopActionSuccess] = useState<string>('');
   const [isExportingEnv, setIsExportingEnv] = useState(false);
@@ -126,9 +126,7 @@ const SettingsPage: React.FC = () => {
     'OPENAI_TEMPERATURE',
     'VISION_MODEL',
   ]);
-  const SYSTEM_HIDDEN_KEYS = new Set([
-    'ADMIN_AUTH_ENABLED',
-  ]);
+  const SYSTEM_HIDDEN_KEYS = new Set<string>([]);
   const AGENT_HIDDEN_KEYS = new Set<string>();
   const activeItems =
     activeCategory === 'ai_model'
@@ -283,7 +281,7 @@ const SettingsPage: React.FC = () => {
           </aside>
 
           <section className="space-y-4">
-            {activeCategory === 'system' ? <AuthSettingsCard /> : null}
+            {/* AuthSettingsCard removed: auth toggle no longer exists in multi-user mode */}
             {activeCategory === 'system' ? (
               <SettingsSectionCard
                 title="版本信息"
@@ -412,7 +410,10 @@ const SettingsPage: React.FC = () => {
                 />
               </SettingsSectionCard>
             ) : null}
-            {activeCategory === 'system' && passwordChangeable ? (
+            {activeCategory === 'system' ? (
+              <ScheduleCard />
+            ) : null}
+            {activeCategory === 'system' && loggedIn ? (
               <ChangePasswordCard />
             ) : null}
             {activeItems.length ? (

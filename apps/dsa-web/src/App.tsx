@@ -5,6 +5,10 @@ import HomePage from './pages/HomePage';
 import BacktestPage from './pages/BacktestPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import OnboardingPage from './pages/OnboardingPage';
+import SharePage from './pages/SharePage';
+import WatchlistPage from './pages/WatchlistPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ChatPage from './pages/ChatPage';
 import PortfolioPage from './pages/PortfolioPage';
@@ -15,7 +19,7 @@ import './App.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const { authEnabled, loggedIn, isLoading, loadError, refreshStatus } = useAuth();
+  const { hasUsers, loggedIn, onboardingCompleted, isLoading, loadError, refreshStatus } = useAuth();
 
   useEffect(() => {
     useAgentChatStore.getState().setCurrentRoute(location.pathname);
@@ -46,29 +50,50 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (authEnabled && !loggedIn) {
-    if (location.pathname === '/login') {
-      return <LoginPage />;
+  if (!loggedIn) {
+    if (!hasUsers && location.pathname !== '/register') {
+      return <Navigate to="/register" replace />;
     }
-    const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+    if (
+      hasUsers &&
+      !['/login', '/register'].includes(location.pathname) &&
+      !location.pathname.startsWith('/share/')
+    ) {
+      const redirect = encodeURIComponent(location.pathname + location.search);
+      return <Navigate to={`/login?redirect=${redirect}`} replace />;
+    }
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/share/:token" element={<SharePage />} />
+        <Route path="*" element={<Navigate to={hasUsers ? "/login" : "/register"} replace />} />
+      </Routes>
+    );
   }
 
-  if (location.pathname === '/login') {
+  if (location.pathname === '/login' || location.pathname === '/register') {
     return <Navigate to="/" replace />;
+  }
+
+  // Redirect to onboarding if not completed (unless already on /onboarding)
+  if (!onboardingCompleted && location.pathname !== '/onboarding' && !location.pathname.startsWith('/share/')) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (
     <Routes>
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route element={<Shell />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/watchlist" element={<WatchlistPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/share/:token" element={<SharePage />} />
     </Routes>
   );
 };

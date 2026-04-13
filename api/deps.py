@@ -63,9 +63,26 @@ def get_database_manager() -> DatabaseManager:
 
 
 def get_system_config_service(request: Request) -> SystemConfigService:
-    """Get app-lifecycle shared SystemConfigService instance."""
+    """Get app-lifecycle shared SystemConfigService instance (fallback for non-user contexts)."""
     service = getattr(request.app.state, "system_config_service", None)
     if service is None:
         service = SystemConfigService()
         request.app.state.system_config_service = service
     return service
+
+
+def get_user_config_service(request: Request) -> SystemConfigService:
+    """Create a SystemConfigService backed by the current user's DB settings.
+
+    Falls back to the global .env-backed service when no authenticated user
+    is available (e.g. CLI, unauthenticated request).
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        from src.core.user_config_manager import UserConfigManager
+
+        db = DatabaseManager.get_instance()
+        manager = UserConfigManager(db._SessionLocal, user_id)
+        return SystemConfigService(manager=manager)
+    # Fallback to global .env for unauthenticated or CLI
+    return get_system_config_service(request)

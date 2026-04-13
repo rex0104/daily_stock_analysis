@@ -67,7 +67,8 @@ class HistoryService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         page: int = 1,
-        limit: int = 20
+        limit: int = 20,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get history analysis list.
@@ -108,7 +109,8 @@ class HistoryService:
                 start_date=start_dt,
                 end_date=end_dt,
                 offset=offset,
-                limit=limit
+                limit=limit,
+                user_id=user_id,
             )
             
             # Convert to response format
@@ -134,7 +136,7 @@ class HistoryService:
             logger.error(f"查询历史列表失败: {e}", exc_info=True)
             return {"total": 0, "items": []}
 
-    def _resolve_record(self, record_id: str):
+    def _resolve_record(self, record_id: str, user_id: Optional[str] = None):
         """
         Resolve a record_id parameter to an AnalysisHistory object.
 
@@ -143,32 +145,38 @@ class HistoryService:
 
         Args:
             record_id: integer PK (as string) or query_id string
+            user_id: when provided, verify the record belongs to this user
 
         Returns:
             AnalysisHistory object or None
         """
+        record = None
         try:
             int_id = int(record_id)
             record = self.db.get_analysis_history_by_id(int_id)
-            if record:
-                return record
         except (ValueError, TypeError):
             pass
-        # Fall back to query_id lookup
-        return self.db.get_latest_analysis_by_query_id(record_id)
+        if record is None:
+            # Fall back to query_id lookup
+            record = self.db.get_latest_analysis_by_query_id(record_id)
+        # Ownership check: if user_id is provided, verify the record belongs to this user
+        if record and user_id and getattr(record, "user_id", None) != user_id:
+            return None
+        return record
 
-    def resolve_and_get_detail(self, record_id: str) -> Optional[Dict[str, Any]]:
+    def resolve_and_get_detail(self, record_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Resolve record_id (int PK or query_id string) and return history detail.
 
         Args:
             record_id: integer PK (as string) or query_id string
+            user_id: when provided, verify the record belongs to this user
 
         Returns:
             Complete analysis report dict, or None
         """
         try:
-            record = self._resolve_record(record_id)
+            record = self._resolve_record(record_id, user_id=user_id)
             if not record:
                 return None
             return self._record_to_detail_dict(record)
@@ -176,19 +184,20 @@ class HistoryService:
             logger.error(f"resolve_and_get_detail failed for {record_id}: {e}", exc_info=True)
             return None
 
-    def resolve_and_get_news(self, record_id: str, limit: int = 20) -> List[Dict[str, str]]:
+    def resolve_and_get_news(self, record_id: str, limit: int = 20, user_id: Optional[str] = None) -> List[Dict[str, str]]:
         """
         Resolve record_id (int PK or query_id string) and return associated news.
 
         Args:
             record_id: integer PK (as string) or query_id string
             limit: max items to return
+            user_id: when provided, verify the record belongs to this user
 
         Returns:
             List of news intel dicts
         """
         try:
-            record = self._resolve_record(record_id)
+            record = self._resolve_record(record_id, user_id=user_id)
             if not record:
                 logger.warning(f"resolve_and_get_news: record not found for {record_id}")
                 return []
@@ -289,12 +298,13 @@ class HistoryService:
             "context_snapshot": context_snapshot,
         }
 
-    def delete_history_records(self, record_ids: List[int]) -> int:
+    def delete_history_records(self, record_ids: List[int], user_id: Optional[str] = None) -> int:
         """
         Delete specified analysis history records.
 
         Args:
             record_ids: List of history record primary key IDs
+            user_id: when provided, only delete records belonging to this user
 
         Returns:
             Number of records actually deleted
@@ -303,6 +313,16 @@ class HistoryService:
             Exception: Re-raises any storage-layer exception so the API caller
                        receives a proper 500 error instead of a silent success.
         """
+        if user_id:
+            # Filter record_ids to only those owned by this user
+            owned_ids = []
+            for rid in record_ids:
+                record = self.db.get_analysis_history_by_id(int(rid))
+                if record and getattr(record, "user_id", None) == user_id:
+                    owned_ids.append(rid)
+            if not owned_ids:
+                return 0
+            return self.db.delete_analysis_history_records(owned_ids)
         return self.db.delete_analysis_history_records(record_ids)
 
     def get_news_intel(self, query_id: str, limit: int = 20) -> List[Dict[str, str]]:
@@ -440,7 +460,7 @@ class HistoryService:
         else:
             return "极度悲观"
 
-    def get_markdown_report(self, record_id: str) -> Optional[str]:
+    def get_markdown_report(self, record_id: str, user_id: Optional[str] = None) -> Optional[str]:
         """
         Generate a Markdown report for a single analysis history record.
 
@@ -449,6 +469,7 @@ class HistoryService:
 
         Args:
             record_id: integer PK (as string) or query_id string
+            user_id: when provided, verify the record belongs to this user
 
         Returns:
             Markdown formatted report string, or None if record not found
@@ -456,7 +477,7 @@ class HistoryService:
         Raises:
             MarkdownReportGenerationError: If report generation fails due to internal errors
         """
-        record = self._resolve_record(record_id)
+        record = self._resolve_record(record_id, user_id=user_id)
         if not record:
             logger.warning(f"get_markdown_report: record not found for {record_id}")
             return None

@@ -228,9 +228,11 @@ def is_password_changeable() -> bool:
 
 
 def _get_session_secret() -> Optional[bytes]:
-    """Return session signing secret."""
-    if not is_auth_enabled():
-        return None
+    """Return session signing secret.
+
+    Works both in legacy single-admin mode (ADMIN_AUTH_ENABLED) and in
+    multi-user mode where users exist in the database.
+    """
     return _load_session_secret()
 
 
@@ -365,6 +367,51 @@ def verify_session(value: str) -> bool:
     if time.time() - ts > max_age_hours * 3600:
         return False
     return True
+
+
+def _get_session_max_age_hours() -> int:
+    """Return session max age in hours from env or default."""
+    try:
+        return int(os.getenv("ADMIN_SESSION_MAX_AGE_HOURS", str(SESSION_MAX_AGE_HOURS_DEFAULT)))
+    except ValueError:
+        return SESSION_MAX_AGE_HOURS_DEFAULT
+
+
+def create_user_session(user_id: str) -> str:
+    """Create a signed session for a specific user.
+    Format: user_id.nonce.timestamp.signature
+    """
+    secret = _get_session_secret()
+    if not secret:
+        return ""
+    nonce = secrets.token_urlsafe(16)
+    ts = str(int(time.time()))
+    payload = f"{user_id}.{nonce}.{ts}"
+    sig = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def verify_session_user(value: str) -> Optional[str]:
+    """Verify session and return user_id, or None if invalid/expired."""
+    secret = _get_session_secret()
+    if not secret or not value:
+        return None
+    parts = value.split(".")
+    if len(parts) != 4:
+        return None
+    user_id, nonce, ts_str, sig = parts
+    payload = f"{user_id}.{nonce}.{ts_str}"
+    expected = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        return None
+    try:
+        ts = int(ts_str)
+    except ValueError:
+        return None
+    max_age_hours = _get_session_max_age_hours()
+    if time.time() - ts > max_age_hours * 3600:
+        return None
+    return user_id
 
 
 def get_client_ip(request) -> str:

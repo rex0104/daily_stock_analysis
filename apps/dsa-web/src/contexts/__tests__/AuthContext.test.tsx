@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApiError, createParsedApiError } from '../../api/error';
 import { AuthProvider, useAuth } from '../AuthContext';
 
-const { getStatus, login, changePassword, logout, resetDashboardState } = vi.hoisted(() => ({
+const { getStatus, register, login, changePassword, logout, resetDashboardState } = vi.hoisted(() => ({
   getStatus: vi.fn(),
+  register: vi.fn(),
   login: vi.fn(),
   changePassword: vi.fn(),
   logout: vi.fn(),
@@ -14,6 +15,7 @@ const { getStatus, login, changePassword, logout, resetDashboardState } = vi.hoi
 vi.mock('../../api/auth', () => ({
   authApi: {
     getStatus,
+    register,
     login,
     changePassword,
     logout,
@@ -34,8 +36,9 @@ const Probe = () => {
   return (
     <div>
       <span data-testid="status">{auth.loggedIn ? 'logged-in' : 'logged-out'}</span>
-      <span data-testid="password-set">{auth.passwordSet ? 'set' : 'unset'}</span>
-      <button type="button" onClick={() => void auth.login('passwd6', 'passwd6')}>
+      <span data-testid="has-users">{auth.hasUsers ? 'yes' : 'no'}</span>
+      <span data-testid="user-email">{auth.user?.email ?? 'none'}</span>
+      <button type="button" onClick={() => void auth.login('test@example.com', 'passwd6')}>
         trigger-login
       </button>
       <button type="button" onClick={() => void auth.logout()}>
@@ -53,16 +56,14 @@ describe('AuthContext', () => {
   it('refreshes auth state after a successful login', async () => {
     getStatus
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: false,
-        passwordSet: false,
-        passwordChangeable: true,
+        user: null,
       })
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: true,
-        passwordSet: true,
-        passwordChangeable: true,
+        user: { id: '1', email: 'test@example.com', nickname: 'Test' },
       });
     login.mockResolvedValue(undefined);
 
@@ -76,23 +77,20 @@ describe('AuthContext', () => {
     fireEvent.click(screen.getByRole('button', { name: 'trigger-login' }));
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('logged-in'));
-    expect(screen.getByTestId('password-set')).toHaveTextContent('set');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
   });
 
   it('refreshes auth state after logout', async () => {
     getStatus
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: true,
-        passwordSet: true,
-        passwordChangeable: true,
+        user: { id: '1', email: 'test@example.com', nickname: 'Test' },
       })
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: false,
-        passwordSet: true,
-        passwordChangeable: true,
-        setupState: 'enabled',
+        user: null,
       });
     logout.mockResolvedValue(undefined);
 
@@ -109,13 +107,11 @@ describe('AuthContext', () => {
     expect(resetDashboardState).toHaveBeenCalled();
   });
 
-  it('does not reset dashboard state when auth is disabled', async () => {
+  it('resets dashboard state when not logged in', async () => {
     getStatus.mockResolvedValueOnce({
-      authEnabled: false,
+      hasUsers: false,
       loggedIn: false,
-      passwordSet: false,
-      passwordChangeable: false,
-      setupState: 'no_password',
+      user: null,
     });
 
     render(
@@ -125,24 +121,20 @@ describe('AuthContext', () => {
     );
 
     await screen.findByTestId('status');
-    expect(resetDashboardState).not.toHaveBeenCalled();
+    expect(resetDashboardState).toHaveBeenCalled();
   });
 
   it('treats a 401 logout as already signed out after status refresh', async () => {
     getStatus
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: true,
-        passwordSet: true,
-        passwordChangeable: true,
-        setupState: 'enabled',
+        user: { id: '1', email: 'test@example.com', nickname: 'Test' },
       })
       .mockResolvedValueOnce({
-        authEnabled: true,
+        hasUsers: true,
         loggedIn: false,
-        passwordSet: true,
-        passwordChangeable: true,
-        setupState: 'enabled',
+        user: null,
       });
     logout.mockRejectedValue(
       createApiError(

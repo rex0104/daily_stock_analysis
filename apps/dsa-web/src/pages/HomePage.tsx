@@ -6,7 +6,9 @@ import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
 import { HistoryList } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
+import { ShareButton } from '../components/share/ShareButton';
 import { TaskPanel } from '../components/tasks';
+import { watchlistApi } from '../api/watchlist';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
 
@@ -14,6 +16,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [watchlistCodes, setWatchlistCodes] = useState<Set<string>>(new Set());
 
   const {
     query,
@@ -104,6 +107,26 @@ const HomePage: React.FC = () => {
     setShowDeleteConfirm(false);
   }, [deleteSelectedHistory]);
 
+  // Load watchlist codes for star toggle on history items
+  useEffect(() => {
+    watchlistApi.list().then((items) => {
+      setWatchlistCodes(new Set(items.map((i) => i.stockCode)));
+    }).catch(() => undefined);
+  }, []);
+
+  const handleToggleWatchlist = useCallback(
+    async (stockCode: string, stockName: string | undefined, inWatchlist: boolean) => {
+      if (inWatchlist) {
+        await watchlistApi.remove(stockCode).catch(() => undefined);
+        setWatchlistCodes((prev) => { const next = new Set(prev); next.delete(stockCode); return next; });
+      } else {
+        await watchlistApi.add(stockCode, stockName).catch(() => undefined);
+        setWatchlistCodes((prev) => new Set(prev).add(stockCode));
+      }
+    },
+    [],
+  );
+
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
@@ -122,6 +145,10 @@ const HomePage: React.FC = () => {
           onToggleSelectAll={toggleSelectAllVisible}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
           className="flex-1 overflow-hidden"
+          watchlistCodes={watchlistCodes}
+          onToggleWatchlist={(stockCode, stockName, inWatchlist) => {
+            void handleToggleWatchlist(stockCode, stockName, inWatchlist);
+          }}
         />
       </div>
     ),
@@ -133,11 +160,13 @@ const HomePage: React.FC = () => {
       isLoadingHistory,
       isLoadingMore,
       handleHistoryItemClick,
+      handleToggleWatchlist,
       loadMoreHistory,
       selectedIds,
       selectedReport?.meta.id,
       toggleHistorySelection,
       toggleSelectAllVisible,
+      watchlistCodes,
     ],
   );
 
@@ -275,6 +304,9 @@ const HomePage: React.FC = () => {
                     </svg>
                     {reportText.fullReport}
                   </Button>
+                  {selectedReport.meta.id !== undefined && (
+                    <ShareButton analysisHistoryId={selectedReport.meta.id} />
+                  )}
                 </div>
                 <ReportSummary data={selectedReport} isHistory />
               </div>

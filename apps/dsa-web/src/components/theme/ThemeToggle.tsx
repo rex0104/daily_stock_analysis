@@ -17,17 +17,6 @@ const THEME_OPTIONS: Array<{
   { value: 'system', label: '跟随系统', icon: Monitor },
 ];
 
-function resolveThemeLabel(theme: string | undefined) {
-  switch (theme) {
-    case 'light':
-      return '浅色';
-    case 'dark':
-      return '深色';
-    default:
-      return '跟随系统';
-  }
-}
-
 interface ThemeToggleProps {
   variant?: ThemeToggleVariant;
   collapsed?: boolean;
@@ -72,7 +61,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         className={cn(
           isNavVariant
             ? 'group relative flex h-12 w-full select-none items-center gap-3 rounded-[1.35rem] border border-transparent px-4 text-sm text-secondary-text transition-all duration-300 hover:bg-hover hover:text-foreground data-[state=open]:border-subtle data-[state=open]:bg-subtle data-[state=open]:text-foreground'
-            : 'inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-card/80 px-3 text-sm text-secondary-text shadow-soft-card transition-colors hover:bg-hover hover:text-foreground',
+            : 'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-card/80 text-sm text-secondary-text shadow-soft-card transition-colors hover:bg-hover hover:text-foreground',
           isNavVariant && collapsed ? 'justify-center px-2' : ''
         )}
         aria-haspopup="menu"
@@ -80,11 +69,9 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         aria-label="切换主题"
       >
         <TriggerIcon className={cn('shrink-0', isNavVariant ? 'h-5 w-5' : 'h-4 w-4')} />
-        {isNavVariant ? (
-          collapsed ? null : <span className="truncate text-[1.02rem] font-medium">主题</span>
-        ) : (
-          <span className="hidden sm:inline">{resolveThemeLabel(activeTheme)}</span>
-        )}
+        {isNavVariant && !collapsed ? (
+          <span className="truncate text-[1.02rem] font-medium">主题</span>
+        ) : null}
       </button>
 
       {open ? (
