@@ -227,12 +227,12 @@ const WatchlistPage: React.FC = () => {
             </div>
             {schedule !== null ? (
               schedule.enabled ? (
-                <Badge variant="info">\u6BCF\u65E5 {schedule.time} \u81EA\u52A8\u5206\u6790</Badge>
+                <Badge variant="info">{'每日 ' + schedule.time + ' 自动分析'}</Badge>
               ) : (
                 <span className="text-xs text-muted-text">
-                  \u672A\u5F00\u542F\u5B9A\u65F6\uFF0C\u00B7{' '}
+                  {'未开启定时 · '}
                   <Link to="/settings" className="text-cyan hover:underline">
-                    \u5F00\u542F
+                    开启
                   </Link>
                 </span>
               )
