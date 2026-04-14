@@ -12,6 +12,78 @@ import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
 import type { AnalysisReport, TaskInfo } from '../types/analysis';
 
+// ── Analyzing placeholder skeleton (no report yet, task in progress) ─────────
+function AnalyzingPlaceholder({ task }: { task: TaskInfo }) {
+  const progress = Math.max(0, Math.min(100, task.progress ?? 0));
+  return (
+    <div className="max-w-3xl space-y-4 pb-8 animate-fade-in">
+      {/* Header: stock identity skeleton */}
+      <div className="terminal-card rounded-2xl p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse" />
+              <span className="text-xs font-medium text-cyan">正在分析</span>
+              <span className="text-sm font-semibold text-foreground">
+                {task.stockName || task.stockCode}
+              </span>
+            </div>
+            {task.message && (
+              <p className="text-xs text-secondary-text">{task.message}</p>
+            )}
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/6">
+              <div
+                className="h-full rounded-full bg-cyan/70 transition-[width] duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Sentiment gauge skeleton */}
+          <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border border-white/8 bg-white/4">
+            <div className="h-6 w-6 animate-pulse rounded-full bg-cyan/20" />
+          </div>
+        </div>
+        {/* Summary skeleton lines */}
+        <div className="space-y-2 pt-1">
+          <div className="h-3 w-full animate-pulse rounded-full bg-white/6" />
+          <div className="h-3 w-5/6 animate-pulse rounded-full bg-white/6" />
+          <div className="h-3 w-4/6 animate-pulse rounded-full bg-white/5" />
+        </div>
+      </div>
+
+      {/* K-line chart skeleton */}
+      <div className="terminal-card rounded-2xl p-4">
+        <div className="mb-3 h-3 w-16 animate-pulse rounded-full bg-white/6" />
+        <div className="h-[200px] animate-pulse rounded-xl bg-white/4" />
+      </div>
+
+      {/* Strategy skeleton */}
+      <div className="terminal-card rounded-2xl p-5">
+        <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-white/6" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-white/6 bg-white/3 p-3 space-y-2">
+              <div className="h-2.5 w-10 animate-pulse rounded-full bg-white/6" />
+              <div className="h-5 w-16 animate-pulse rounded-full bg-white/8" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* News skeleton */}
+      <div className="terminal-card rounded-2xl p-5 space-y-3">
+        <div className="h-3 w-16 animate-pulse rounded-full bg-white/6" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-1.5">
+            <div className="h-3 w-full animate-pulse rounded-full bg-white/6" />
+            <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-white/4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Analyzing banner (shown above report when tasks are running) ──────────────
 function AnalyzingBanner({ tasks }: { tasks: TaskInfo[] }) {
   const active = tasks.filter((t) => t.status === 'pending' || t.status === 'processing');
@@ -457,6 +529,8 @@ const HomePage: React.FC = () => {
               </div>
               <ReportSummary data={selectedReport} isHistory />
             </div>
+          ) : activeTasks.length > 0 ? (
+            <AnalyzingPlaceholder task={activeTasks[0]} />
           ) : (
             <div className="flex h-full items-center justify-center">
               <EmptyState
