@@ -47,6 +47,22 @@ export const authApi = {
     });
   },
 
+  async forgotPassword(email: string): Promise<void> {
+    await apiClient.post('/api/v1/auth/forgot-password', { email });
+  },
+
+  async resetPassword(
+    token: string,
+    password: string,
+    passwordConfirm: string
+  ): Promise<void> {
+    await apiClient.post('/api/v1/auth/reset-password', {
+      token,
+      password,
+      passwordConfirm,
+    });
+  },
+
   async logout(): Promise<void> {
     await apiClient.post('/api/v1/auth/logout');
   },

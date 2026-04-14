@@ -6,6 +6,8 @@ import BacktestPage from './pages/BacktestPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import OnboardingPage from './pages/OnboardingPage';
 import SharePage from './pages/SharePage';
 import WatchlistPage from './pages/WatchlistPage';
@@ -56,7 +58,7 @@ const AppContent: React.FC = () => {
     }
     if (
       hasUsers &&
-      !['/login', '/register'].includes(location.pathname) &&
+      !['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname) &&
       !location.pathname.startsWith('/share/')
     ) {
       const redirect = encodeURIComponent(location.pathname + location.search);
@@ -66,13 +68,15 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/share/:token" element={<SharePage />} />
         <Route path="*" element={<Navigate to={hasUsers ? "/login" : "/register"} replace />} />
       </Routes>
     );
   }
 
-  if (location.pathname === '/login' || location.pathname === '/register') {
+  if (['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)) {
     return <Navigate to="/" replace />;
   }
 

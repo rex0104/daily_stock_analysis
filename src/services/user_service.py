@@ -79,6 +79,19 @@ class UserService:
             user.password_hash = _hash_password(new_password, salt)
             session.commit()
 
+    def reset_password(self, user_id: str, new_password: str) -> None:
+        """Reset a user's password without requiring the current password."""
+        if len(new_password) < MIN_PASSWORD_LEN:
+            raise ValueError(f"Password must be at least {MIN_PASSWORD_LEN} characters")
+        with self._sf() as session:
+            user = session.query(User).filter_by(id=user_id).first()
+            if not user:
+                raise ValueError("User not found")
+            salt = os.urandom(32)
+            user.password_salt = base64.b64encode(salt).decode("ascii")
+            user.password_hash = _hash_password(new_password, salt)
+            session.commit()
+
     def has_users(self) -> bool:
         with self._sf() as session:
             return session.query(User.id).first() is not None

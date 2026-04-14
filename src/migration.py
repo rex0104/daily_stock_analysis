@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
-_CURRENT_VERSION = 4
+_CURRENT_VERSION = 5
 
 
 def ensure_schema_current(engine: Engine) -> None:
@@ -33,6 +33,7 @@ def ensure_schema_current(engine: Engine) -> None:
         (2, _migrate_v2),
         (3, _migrate_v3),
         (4, _migrate_v4),
+        (5, _migrate_v5),
     ]
 
     for ver, fn in migrations:
@@ -135,4 +136,26 @@ def _migrate_v4(engine: Engine) -> None:
         if not _has_column(engine, "users", "onboarding_completed"):
             conn.execute(text(
                 "ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 0"
+            ))
+
+
+def _migrate_v5(engine: Engine) -> None:
+    """Create password_reset_tokens table for email-based password reset."""
+    inspector = inspect(engine)
+    if "password_reset_tokens" not in inspector.get_table_names():
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE TABLE password_reset_tokens ("
+                "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  user_id VARCHAR(32) NOT NULL,"
+                "  token VARCHAR(64) NOT NULL UNIQUE,"
+                "  created_at DATETIME NOT NULL,"
+                "  used BOOLEAN NOT NULL DEFAULT 0"
+                ")"
+            ))
+            conn.execute(text(
+                "CREATE INDEX ix_prt_user_id ON password_reset_tokens (user_id)"
+            ))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX ix_prt_token ON password_reset_tokens (token)"
             ))

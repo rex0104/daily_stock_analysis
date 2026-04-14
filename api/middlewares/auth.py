@@ -22,6 +22,8 @@ EXEMPT_PATHS = frozenset({
     "/api/v1/auth/register",
     "/api/v1/auth/status",
     "/api/v1/auth/logout",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
     "/api/health",
     "/health",
     "/docs",
