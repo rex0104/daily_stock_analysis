@@ -90,7 +90,7 @@ function AnalyzingBanner({ tasks }: { tasks: TaskInfo[] }) {
   if (active.length === 0) return null;
 
   return (
-    <div className="mb-3 space-y-2">
+    <div className="space-y-2">
       {active.map((task) => {
         const progress = Math.max(0, Math.min(100, task.progress ?? 0));
         const isProcessing = task.status === 'processing';
@@ -399,159 +399,173 @@ const HomePage: React.FC = () => {
   return (
     <div
       data-testid="home-dashboard"
-      className="flex h-[calc(100vh-5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)] w-full overflow-hidden"
+      className="flex h-[calc(100vh-5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)] w-full flex-col overflow-hidden"
     >
-      {/* ── Left column: analysis history ─────────────────────────── */}
-      <aside className="hidden md:flex w-64 lg:w-72 shrink-0 flex-col overflow-hidden border-r border-subtle/60 p-3">
-        {sidebarContent}
-      </aside>
+      {/* ── Full-width search header (all three columns align below) ── */}
+      <header className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-hidden border-b border-subtle/60 px-3 py-3 md:px-4">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden -ml-1 shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
+          aria-label="历史记录"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div className="relative min-w-0 flex-1">
+          <StockAutocomplete
+            value={query}
+            onChange={setQuery}
+            onSubmit={(stockCode, stockName, selectionSource) => {
+              handleSubmitAnalysis(stockCode, stockName, selectionSource);
+            }}
+            placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
+            disabled={isAnalyzing}
+            className={inputError ? 'border-danger/50' : undefined}
+          />
+        </div>
+        <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
+          <input
+            type="checkbox"
+            checked={notify}
+            onChange={(e) => setNotify(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-border accent-primary"
+          />
+          推送通知
+        </label>
+        <button
+          type="button"
+          onClick={() => handleSubmitAnalysis()}
+          disabled={!query || isAnalyzing}
+          className="btn-primary flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap"
+        >
+          {isAnalyzing ? (
+            <>
+              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              分析中
+            </>
+          ) : (
+            '分析'
+          )}
+        </button>
+      </header>
 
-      {/* Mobile history drawer */}
-      {sidebarOpen ? (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="page-drawer-overlay absolute inset-0" />
-          <div
-            className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {sidebarContent}
-          </div>
+      {inputError || duplicateError ? (
+        <div className="shrink-0 px-3 pt-2 md:px-4">
+          {inputError ? (
+            <InlineAlert variant="danger" title="输入有误" message={inputError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
+          ) : null}
+          {!inputError && duplicateError ? (
+            <InlineAlert variant="warning" title="任务已存在" message={duplicateError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
+          ) : null}
         </div>
       ) : null}
 
-      {/* ── Middle column: search + task status + report ───────────── */}
-      <div className="flex-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
+      {/* ── Three-column body ─────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Search bar */}
-        <header className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-hidden border-b border-subtle/60 px-3 py-3 md:px-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden -ml-1 shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
-            aria-label="历史记录"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="relative min-w-0 flex-1">
-            <StockAutocomplete
-              value={query}
-              onChange={setQuery}
-              onSubmit={(stockCode, stockName, selectionSource) => {
-                handleSubmitAnalysis(stockCode, stockName, selectionSource);
-              }}
-              placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
-              disabled={isAnalyzing}
-              className={inputError ? 'border-danger/50' : undefined}
-            />
-          </div>
-          <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
-            <input
-              type="checkbox"
-              checked={notify}
-              onChange={(e) => setNotify(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border accent-primary"
-            />
-            推送通知
-          </label>
-          <button
-            type="button"
-            onClick={() => handleSubmitAnalysis()}
-            disabled={!query || isAnalyzing}
-            className="btn-primary flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap"
-          >
-            {isAnalyzing ? (
-              <>
-                <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                分析中
-              </>
-            ) : (
-              '分析'
-            )}
-          </button>
-        </header>
+        {/* Left column: analysis history */}
+        <aside className="hidden md:flex w-64 lg:w-72 shrink-0 flex-col overflow-hidden border-r border-subtle/60 p-3">
+          {sidebarContent}
+        </aside>
 
-        {inputError || duplicateError ? (
-          <div className="px-3 pt-2 md:px-4">
-            {inputError ? (
-              <InlineAlert variant="danger" title="输入有误" message={inputError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
-            ) : null}
-            {!inputError && duplicateError ? (
-              <InlineAlert variant="warning" title="任务已存在" message={duplicateError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
-            ) : null}
+        {/* Mobile history drawer */}
+        {sidebarOpen ? (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+            <div className="page-drawer-overlay absolute inset-0" />
+            <div
+              className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {sidebarContent}
+            </div>
           </div>
         ) : null}
 
-        {/* Report area */}
-        <section className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 pt-3 md:px-4 touch-pan-y">
-          {error ? (
-            <ApiErrorAlert error={error} className="mb-3" onDismiss={clearError} />
-          ) : null}
+        {/* Middle column */}
+        <div className="flex-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
 
-          {/* Analyzing banner — above report */}
-          <AnalyzingBanner tasks={activeTasks} />
-
-          {isLoadingReport ? (
-            <div className="flex h-full flex-col items-center justify-center">
-              <DashboardStateBlock title="加载报告中..." loading />
-            </div>
-          ) : selectedReport ? (
-            <div className="max-w-3xl space-y-4 pb-8">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  variant="home-action-ai"
-                  size="sm"
-                  disabled={selectedReport.meta.id === undefined}
-                  onClick={handleAskFollowUp}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  追问 AI
-                </Button>
-                <Button
-                  variant="home-action-ai"
-                  size="sm"
-                  disabled={selectedReport.meta.id === undefined}
-                  onClick={openMarkdownDrawer}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  {reportText.fullReport}
-                </Button>
-                {selectedReport.meta.id !== undefined && (
-                  <ShareButton analysisHistoryId={selectedReport.meta.id} />
-                )}
-              </div>
-              <ReportSummary data={selectedReport} isHistory />
-            </div>
-          ) : activeTasks.length > 0 ? (
-            <AnalyzingPlaceholder task={activeTasks[0]} />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <EmptyState
-                title="开始分析"
-                description="输入股票代码进行分析，或从左侧选择历史报告查看。"
-                className="max-w-xl border-dashed"
-                icon={(
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                )}
-              />
+          {/* ── Banner + action buttons on the same row ── */}
+          {(activeTasks.length > 0 || selectedReport) && (
+            <div className="flex shrink-0 items-center gap-3 border-b border-subtle/60 px-3 py-2 md:px-4">
+              {activeTasks.length > 0 && (
+                <div className="min-w-0 flex-1">
+                  <AnalyzingBanner tasks={activeTasks} />
+                </div>
+              )}
+              {selectedReport && (
+                <div className="flex shrink-0 items-center gap-2 ml-auto">
+                  <Button
+                    variant="home-action-ai"
+                    size="sm"
+                    disabled={selectedReport.meta.id === undefined}
+                    onClick={handleAskFollowUp}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    追问 AI
+                  </Button>
+                  <Button
+                    variant="home-action-ai"
+                    size="sm"
+                    disabled={selectedReport.meta.id === undefined}
+                    onClick={openMarkdownDrawer}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {reportText.fullReport}
+                  </Button>
+                  {selectedReport.meta.id !== undefined && (
+                    <ShareButton analysisHistoryId={selectedReport.meta.id} />
+                  )}
+                </div>
+              )}
             </div>
           )}
-        </section>
-      </div>
 
-      {/* ── Right column: market sentiment ────────────────────────── */}
-      <aside className="hidden xl:flex w-60 2xl:w-72 shrink-0 flex-col overflow-hidden border-l border-subtle/60 p-3">
-        <MarketSentimentPanel report={selectedReport} />
-      </aside>
+          {/* Report / placeholder / empty */}
+          <section className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 pt-3 md:px-4 touch-pan-y">
+            {error ? (
+              <ApiErrorAlert error={error} className="mb-3" onDismiss={clearError} />
+            ) : null}
+
+            {isLoadingReport ? (
+              <div className="flex h-full flex-col items-center justify-center">
+                <DashboardStateBlock title="加载报告中..." loading />
+              </div>
+            ) : selectedReport ? (
+              <div className="max-w-3xl space-y-4 pb-8">
+                <ReportSummary data={selectedReport} isHistory />
+              </div>
+            ) : activeTasks.length > 0 ? (
+              <AnalyzingPlaceholder task={activeTasks[0]} />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <EmptyState
+                  title="开始分析"
+                  description="输入股票代码进行分析，或从左侧选择历史报告查看。"
+                  className="max-w-xl border-dashed"
+                  icon={(
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  )}
+                />
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right column: market sentiment */}
+        <aside className="hidden xl:flex w-60 2xl:w-72 shrink-0 flex-col overflow-hidden border-l border-subtle/60 p-3">
+          <MarketSentimentPanel report={selectedReport} />
+        </aside>
+      </div>
 
       {markdownDrawerOpen && selectedReport?.meta.id ? (
         <ReportMarkdown
