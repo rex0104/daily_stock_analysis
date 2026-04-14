@@ -25,8 +25,8 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
       <div className="mx-auto flex min-h-screen w-full max-w-[1680px] px-3 pb-3 sm:px-4 sm:pb-4 lg:px-5">
         <aside
           className={cn(
-            'sticky top-0 z-40 hidden shrink-0 overflow-hidden rounded-[1.5rem] border border-[var(--shell-sidebar-border)] bg-card/72 px-2 pb-2 pt-3 shadow-soft-card backdrop-blur-sm transition-[width] duration-200 lg:flex',
-            'max-h-screen self-start',
+            'sticky top-3 z-40 hidden shrink-0 overflow-hidden rounded-[1.5rem] border border-[var(--shell-sidebar-border)] bg-card/72 px-2 pb-2 pt-4 shadow-soft-card backdrop-blur-sm transition-[width] duration-200 lg:flex',
+            'max-h-[calc(100vh-0.75rem)] self-start',
             'w-[116px]'
           )}
           aria-label="桌面侧边导航"

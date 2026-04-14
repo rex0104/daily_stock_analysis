@@ -92,6 +92,20 @@ class UserService:
             user.password_hash = _hash_password(new_password, salt)
             session.commit()
 
+    def update_nickname(self, user_id: str, nickname: str) -> Dict[str, Any]:
+        nickname = nickname.strip()
+        if not nickname:
+            raise ValueError("昵称不能为空")
+        if len(nickname) > 50:
+            raise ValueError("昵称最多 50 个字符")
+        with self._sf() as session:
+            user = session.query(User).filter_by(id=user_id).first()
+            if not user:
+                raise ValueError("User not found")
+            user.nickname = nickname
+            session.commit()
+            return {"id": user.id, "email": user.email, "nickname": user.nickname}
+
     def has_users(self) -> bool:
         with self._sf() as session:
             return session.query(User.id).first() is not None

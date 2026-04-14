@@ -131,6 +131,11 @@ function AnalyzingBanner({ tasks }: { tasks: TaskInfo[] }) {
   );
 }
 
+// Strip strategy explanations, keep only the price token (e.g. "725.00元")
+function extractPrice(value: string): string {
+  return value.split('（')[0].split('(')[0].trim();
+}
+
 // ── Market sentiment panel (right column) ────────────────────────────────────
 function MarketSentimentPanel({ report }: { report: AnalysisReport | null }) {
   const score = report?.summary?.sentimentScore;
@@ -188,7 +193,7 @@ function MarketSentimentPanel({ report }: { report: AnalysisReport | null }) {
                   .map((s) => (
                     <div key={s.label} className="flex items-center justify-between text-xs">
                       <span className="text-muted-text">{s.label}</span>
-                      <span className={`font-mono font-semibold ${s.color}`}>{s.value}</span>
+                      <span className={`font-mono font-semibold ${s.color}`}>{extractPrice(s.value!)}</span>
                     </div>
                   ))}
               </div>
