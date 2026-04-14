@@ -43,8 +43,8 @@ function sentimentColorClass(score: number): string {
 }
 
 function pctColorClass(value: number): string {
-  if (value > 0) return 'text-success';
-  if (value < 0) return 'text-danger';
+  if (value > 0) return 'text-danger';
+  if (value < 0) return 'text-success';
   return 'text-muted-text';
 }
 
@@ -183,7 +183,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
 
       {/* Sparkline */}
       {item.sparkline.length > 1 && (
-        <Sparkline data={item.sparkline} width={160} height={36} />
+        <Sparkline data={item.sparkline} width={160} height={36} className="w-full" />
       )}
 
       {/* Sentiment + advice */}

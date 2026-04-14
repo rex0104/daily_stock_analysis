@@ -1,37 +1,33 @@
 import type React from 'react';
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from "motion/react";
-import { Lock, Loader2, Cpu, TrendingUp, Network, Mail } from "lucide-react";
+import { ShieldCheck, Loader2, Cpu, TrendingUp, Network, CheckCircle2 } from "lucide-react";
 import { Button, Input, ParticleBackground } from '../components/common';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import type { ParsedApiError } from '../api/error';
 import { isParsedApiError } from '../api/error';
-import { useAuth } from '../hooks';
 import { SettingsAlert } from '../components/settings';
+import { authApi } from '../api/auth';
 
-const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
-
-  // Set page title
-  useEffect(() => {
-    document.title = '登录 - DSA';
-  }, []);
   const [searchParams] = useSearchParams();
-  const rawRedirect = searchParams.get('redirect') ?? '';
-  const redirect =
-    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
+  const token = searchParams.get('token') ?? '';
 
-  const [email, setEmail] = useState('');
+  useEffect(() => {
+    document.title = '重置密码 - DSA';
+  }, []);
+
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | ParsedApiError | null>(null);
+  const [success, setSuccess] = useState(false);
 
   // 3D Tilt effect values
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth out the mouse movement
   const smoothX = useSpring(mouseX, { damping: 30, stiffness: 200 });
   const smoothY = useSpring(mouseY, { damping: 30, stiffness: 200 });
 
@@ -46,24 +42,44 @@ const LoginPage: React.FC = () => {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [mouseX, mouseY]);
 
+  // Redirect to login after success
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => navigate('/login', { replace: true }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) {
-      setError('请输入邮箱地址');
+
+    if (!token) {
+      setError('无效的重置链接');
       return;
     }
     if (!password) {
-      setError('请输入密码');
+      setError('请输入新密码');
       return;
     }
+    if (password.length < 6) {
+      setError('密码至少 6 位');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('两次输入的密码不一致');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const result = await login(email, password);
-      if (result.success) {
-        navigate(redirect, { replace: true });
+      await authApi.resetPassword(token, password, passwordConfirm);
+      setSuccess(true);
+    } catch (err: unknown) {
+      if (isParsedApiError(err)) {
+        setError(err);
       } else {
-        setError(result.error ?? '登录失败');
+        setError('重置失败，请稍后重试');
       }
     } finally {
       setIsSubmitting(false);
@@ -153,103 +169,103 @@ const LoginPage: React.FC = () => {
 
             <div className="mb-8">
               <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-[var(--login-text-primary)]">
-                <Lock className="h-5 w-5 text-[var(--login-accent-text)]" />
-                <span>登录</span>
+                <ShieldCheck className="h-5 w-5 text-[var(--login-accent-text)]" />
+                <span>重置密码</span>
               </h1>
               <p className="mt-2 text-sm text-[var(--login-text-secondary)]">
-                访问 DSA 量化决策引擎需要有效的身份凭证。
+                请设置您的新密码。
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <Input
-                  id="email"
-                  type="email"
-                  appearance="login"
-                  iconType="none"
-                  label="邮箱"
-                  placeholder="请输入邮箱地址"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting}
-                  autoFocus
-                  autoComplete="email"
-                  trailingAction={
-                    <div className="inline-flex h-8 w-8 items-center justify-center">
-                      <Mail className="h-4 w-4 text-[var(--login-input-icon)]" />
-                    </div>
-                  }
-                />
-
-                <Input
-                  id="password"
-                  type="password"
-                  appearance="login"
-                  allowTogglePassword
-                  iconType="password"
-                  label="登录密码"
-                  placeholder="请输入密码"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
-                  autoComplete="current-password"
-                />
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="overflow-hidden"
-                >
-                  <SettingsAlert
-                    title="验证未通过"
-                    message={isParsedApiError(error) ? error.message : error}
-                    variant="error"
-                    className="!border-[var(--login-error-border)] !bg-[var(--login-error-bg)] !text-[var(--login-error-text)]"
-                  />
-                </motion.div>
-              )}
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="group/btn relative h-12 w-full overflow-hidden rounded-xl border-0 bg-gradient-to-r from-[var(--login-brand-button-start)] to-[var(--login-brand-button-end)] font-medium text-[var(--login-button-text)] shadow-lg shadow-[0_18px_36px_hsl(214_100%_8%_/_0.24)] hover:from-[var(--login-brand-button-start-hover)] hover:to-[var(--login-brand-button-end-hover)]"
-                disabled={isSubmitting}
+            {success ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center gap-4 py-4"
               >
-                <div className="relative z-10 flex items-center justify-center gap-2">
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>正在建立连接...</span>
-                    </>
-                  ) : (
-                    <span>授权进入工作台</span>
-                  )}
-                </div>
-                <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-              </Button>
-            </form>
+                <CheckCircle2 className="h-12 w-12 text-emerald-400" />
+                <p className="text-center text-sm text-[var(--login-text-secondary)]">
+                  密码已重置成功，正在跳转到登录页面...
+                </p>
+              </motion.div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <Input
+                    id="password"
+                    type="password"
+                    appearance="login"
+                    allowTogglePassword
+                    iconType="password"
+                    label="新密码"
+                    placeholder="请设置 6 位以上密码"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isSubmitting}
+                    autoFocus
+                    autoComplete="new-password"
+                  />
 
-            <div className="mt-6 flex flex-col items-center gap-2 text-sm text-[var(--login-text-secondary)]">
+                  <Input
+                    id="passwordConfirm"
+                    type="password"
+                    appearance="login"
+                    allowTogglePassword
+                    iconType="password"
+                    label="确认新密码"
+                    placeholder="再次确认密码"
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    disabled={isSubmitting}
+                    autoComplete="new-password"
+                  />
+                </div>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="overflow-hidden"
+                  >
+                    <SettingsAlert
+                      title="重置失败"
+                      message={isParsedApiError(error) ? error.message : error}
+                      variant="error"
+                      className="!border-[var(--login-error-border)] !bg-[var(--login-error-bg)] !text-[var(--login-error-text)]"
+                    />
+                  </motion.div>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="group/btn relative h-12 w-full overflow-hidden rounded-xl border-0 bg-gradient-to-r from-[var(--login-brand-button-start)] to-[var(--login-brand-button-end)] font-medium text-[var(--login-button-text)] shadow-lg shadow-[0_18px_36px_hsl(214_100%_8%_/_0.24)] hover:from-[var(--login-brand-button-start-hover)] hover:to-[var(--login-brand-button-end-hover)]"
+                  disabled={isSubmitting}
+                >
+                  <div className="relative z-10 flex items-center justify-center gap-2">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>正在重置...</span>
+                      </>
+                    ) : (
+                      <span>重置密码</span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                </Button>
+              </form>
+            )}
+
+            <p className="mt-6 text-center text-sm text-[var(--login-text-secondary)]">
               <Link
-                to="/forgot-password"
+                to="/login"
                 className="font-medium text-[var(--login-accent-text)] hover:underline"
               >
-                忘记密码？
+                返回登录
               </Link>
-              <p>
-                还没有账号？
-                <Link
-                  to="/register"
-                  className="ml-1 font-medium text-[var(--login-accent-text)] hover:underline"
-                >
-                  注册
-                </Link>
-              </p>
-            </div>
+            </p>
           </div>
         </motion.div>
 
@@ -275,4 +291,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default ResetPasswordPage;

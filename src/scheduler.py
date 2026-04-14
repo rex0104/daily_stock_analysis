@@ -88,6 +88,7 @@ class Scheduler:
         self._daily_job: Optional[Any] = None
         self._background_tasks: List[Dict[str, Any]] = []
         self._running = False
+        self._last_dispatch_minute: str = ""
 
     def set_daily_task(self, task: Callable, run_immediately: bool = True):
         """
@@ -270,6 +271,69 @@ class Scheduler:
                 continue
             self._start_background_task(entry)
 
+    def _dispatch_user_scheduled_analyses(self) -> None:
+        """Check for users with scheduled analysis due now and dispatch."""
+        current_hhmm = datetime.now().strftime("%H:%M")
+
+        # Avoid double-dispatch within the same minute
+        if current_hhmm == self._last_dispatch_minute:
+            return
+        self._last_dispatch_minute = current_hhmm
+
+        try:
+            from src.services.user_schedule_service import UserScheduleService
+            from src.storage import DatabaseManager
+
+            db = DatabaseManager.get_instance()
+            service = UserScheduleService(db._SessionLocal)
+            due_users = service.get_due_users(current_hhmm)
+
+            if not due_users:
+                return
+
+            logger.info(
+                "[Scheduler] %d user(s) due for scheduled analysis at %s",
+                len(due_users),
+                current_hhmm,
+            )
+
+            for user_info in due_users:
+                user_id = user_info["user_id"]
+                email = user_info.get("email", "")
+                stock_count = len(user_info.get("stock_codes", []))
+                logger.info(
+                    "[Scheduler] Dispatching analysis for user %s (%s), %d stocks",
+                    user_id[:8],
+                    email,
+                    stock_count,
+                )
+
+                t = threading.Thread(
+                    target=self._run_user_analysis_with_notification,
+                    args=(service, user_info),
+                    daemon=True,
+                    name=f"user-schedule-{user_id[:8]}",
+                )
+                t.start()
+        except Exception:
+            logger.exception("[Scheduler] Failed to dispatch user scheduled analyses")
+
+    def _run_user_analysis_with_notification(self, service, user_info):
+        """Run analysis for a user and send notifications using their config."""
+        user_id = user_info["user_id"]
+        try:
+            result = service.run_user_analysis(user_id)
+            analyzed = result.get("analyzed", 0)
+            total = result.get("total", 0)
+            logger.info(
+                "[Scheduler] User %s analysis complete: %d/%d stocks",
+                user_id[:8],
+                analyzed,
+                total,
+            )
+        except Exception:
+            logger.exception("[Scheduler] User %s scheduled analysis failed", user_id[:8])
+
     def run(self):
         """
         运行调度器主循环
@@ -283,6 +347,7 @@ class Scheduler:
         while self._running and not self.shutdown_handler.should_shutdown:
             self._refresh_daily_schedule_if_needed()
             self.schedule.run_pending()
+            self._dispatch_user_scheduled_analyses()
             self._run_background_tasks()
             time.sleep(30)  # 每30秒检查一次
 

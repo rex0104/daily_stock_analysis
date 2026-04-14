@@ -118,7 +118,7 @@ const OnboardingPage: React.FC = () => {
   }, [currentStep]);
 
   return (
-    <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-[var(--login-bg-main)] py-12 font-sans selection:bg-[var(--login-accent-soft)] sm:px-6 lg:px-8 [perspective:1500px]">
+    <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-[var(--login-bg-main)] py-6 font-sans selection:bg-[var(--login-accent-soft)] sm:py-12 sm:px-6 lg:px-8 [perspective:1500px]">
       {/* Dynamic Background */}
       <ParticleBackground />
 
@@ -252,13 +252,13 @@ const OnboardingPage: React.FC = () => {
           {/* Card Border Glow */}
           <div className="pointer-events-none absolute -inset-0.5 rounded-3xl bg-gradient-to-b from-[var(--login-accent-glow)] to-[hsl(214_100%_56%_/_0.18)] opacity-50 blur-sm transition duration-1000 group-hover:opacity-100 group-hover:duration-200" />
 
-          <div className="pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-[var(--login-border-card)] bg-[var(--login-bg-card)]/80 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-[var(--login-border-card)] bg-[var(--login-bg-card)]/80 p-4 shadow-2xl backdrop-blur-xl sm:p-8">
             {/* Inner corner glow */}
             <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[var(--login-accent-soft)] blur-[50px]" />
             <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-blue-600/10 blur-[50px]" />
 
             {/* Step content */}
-            <div className="relative z-10 min-h-[320px]">
+            <div className="relative z-10 min-h-[240px] sm:min-h-[320px]">
               {currentStep === 0 && (
                 <StepLLMSetup onComplete={() => handleStepComplete(0)} />
               )}

@@ -655,6 +655,17 @@ class User(Base):
     onboarding_completed = Column(Boolean, nullable=False, default=False, server_default="0")
 
 
+class PasswordResetToken(Base):
+    """Token for email-based password reset."""
+    __tablename__ = 'password_reset_tokens'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(32), nullable=False, index=True)
+    token = Column(String(64), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    used = Column(Boolean, nullable=False, default=False)
+
+
 class UserWatchlist(Base):
     """Per-user stock favorites list."""
     __tablename__ = 'user_watchlists'

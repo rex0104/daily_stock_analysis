@@ -1,37 +1,28 @@
 import type React from 'react';
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from "motion/react";
-import { Lock, Loader2, Cpu, TrendingUp, Network, Mail } from "lucide-react";
+import { KeyRound, Loader2, Cpu, TrendingUp, Network, Mail, CheckCircle2 } from "lucide-react";
 import { Button, Input, ParticleBackground } from '../components/common';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import type { ParsedApiError } from '../api/error';
 import { isParsedApiError } from '../api/error';
-import { useAuth } from '../hooks';
 import { SettingsAlert } from '../components/settings';
+import { authApi } from '../api/auth';
 
-const LoginPage: React.FC = () => {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  // Set page title
+const ForgotPasswordPage: React.FC = () => {
   useEffect(() => {
-    document.title = '登录 - DSA';
+    document.title = '忘记密码 - DSA';
   }, []);
-  const [searchParams] = useSearchParams();
-  const rawRedirect = searchParams.get('redirect') ?? '';
-  const redirect =
-    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | ParsedApiError | null>(null);
+  const [sent, setSent] = useState(false);
 
   // 3D Tilt effect values
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth out the mouse movement
   const smoothX = useSpring(mouseX, { damping: 30, stiffness: 200 });
   const smoothY = useSpring(mouseY, { damping: 30, stiffness: 200 });
 
@@ -53,17 +44,15 @@ const LoginPage: React.FC = () => {
       setError('请输入邮箱地址');
       return;
     }
-    if (!password) {
-      setError('请输入密码');
-      return;
-    }
     setIsSubmitting(true);
     try {
-      const result = await login(email, password);
-      if (result.success) {
-        navigate(redirect, { replace: true });
+      await authApi.forgotPassword(email);
+      setSent(true);
+    } catch (err: unknown) {
+      if (isParsedApiError(err)) {
+        setError(err);
       } else {
-        setError(result.error ?? '登录失败');
+        setError('发送失败，请稍后重试');
       }
     } finally {
       setIsSubmitting(false);
@@ -153,103 +142,95 @@ const LoginPage: React.FC = () => {
 
             <div className="mb-8">
               <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-[var(--login-text-primary)]">
-                <Lock className="h-5 w-5 text-[var(--login-accent-text)]" />
-                <span>登录</span>
+                <KeyRound className="h-5 w-5 text-[var(--login-accent-text)]" />
+                <span>忘记密码</span>
               </h1>
               <p className="mt-2 text-sm text-[var(--login-text-secondary)]">
-                访问 DSA 量化决策引擎需要有效的身份凭证。
+                输入注册邮箱，我们将发送密码重置链接。
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <Input
-                  id="email"
-                  type="email"
-                  appearance="login"
-                  iconType="none"
-                  label="邮箱"
-                  placeholder="请输入邮箱地址"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting}
-                  autoFocus
-                  autoComplete="email"
-                  trailingAction={
-                    <div className="inline-flex h-8 w-8 items-center justify-center">
-                      <Mail className="h-4 w-4 text-[var(--login-input-icon)]" />
-                    </div>
-                  }
-                />
-
-                <Input
-                  id="password"
-                  type="password"
-                  appearance="login"
-                  allowTogglePassword
-                  iconType="password"
-                  label="登录密码"
-                  placeholder="请输入密码"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
-                  autoComplete="current-password"
-                />
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="overflow-hidden"
-                >
-                  <SettingsAlert
-                    title="验证未通过"
-                    message={isParsedApiError(error) ? error.message : error}
-                    variant="error"
-                    className="!border-[var(--login-error-border)] !bg-[var(--login-error-bg)] !text-[var(--login-error-text)]"
-                  />
-                </motion.div>
-              )}
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="group/btn relative h-12 w-full overflow-hidden rounded-xl border-0 bg-gradient-to-r from-[var(--login-brand-button-start)] to-[var(--login-brand-button-end)] font-medium text-[var(--login-button-text)] shadow-lg shadow-[0_18px_36px_hsl(214_100%_8%_/_0.24)] hover:from-[var(--login-brand-button-start-hover)] hover:to-[var(--login-brand-button-end-hover)]"
-                disabled={isSubmitting}
+            {sent ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center gap-4 py-4"
               >
-                <div className="relative z-10 flex items-center justify-center gap-2">
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>正在建立连接...</span>
-                    </>
-                  ) : (
-                    <span>授权进入工作台</span>
-                  )}
+                <CheckCircle2 className="h-12 w-12 text-emerald-400" />
+                <p className="text-center text-sm text-[var(--login-text-secondary)]">
+                  如果该邮箱已注册，重置链接已发送到您的邮箱。
+                  <br />
+                  请检查收件箱（及垃圾邮件文件夹）。
+                </p>
+              </motion.div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <Input
+                    id="email"
+                    type="email"
+                    appearance="login"
+                    iconType="none"
+                    label="邮箱"
+                    placeholder="请输入注册邮箱地址"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isSubmitting}
+                    autoFocus
+                    autoComplete="email"
+                    trailingAction={
+                      <div className="inline-flex h-8 w-8 items-center justify-center">
+                        <Mail className="h-4 w-4 text-[var(--login-input-icon)]" />
+                      </div>
+                    }
+                  />
                 </div>
-                <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-              </Button>
-            </form>
 
-            <div className="mt-6 flex flex-col items-center gap-2 text-sm text-[var(--login-text-secondary)]">
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="overflow-hidden"
+                  >
+                    <SettingsAlert
+                      title="发送失败"
+                      message={isParsedApiError(error) ? error.message : error}
+                      variant="error"
+                      className="!border-[var(--login-error-border)] !bg-[var(--login-error-bg)] !text-[var(--login-error-text)]"
+                    />
+                  </motion.div>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="group/btn relative h-12 w-full overflow-hidden rounded-xl border-0 bg-gradient-to-r from-[var(--login-brand-button-start)] to-[var(--login-brand-button-end)] font-medium text-[var(--login-button-text)] shadow-lg shadow-[0_18px_36px_hsl(214_100%_8%_/_0.24)] hover:from-[var(--login-brand-button-start-hover)] hover:to-[var(--login-brand-button-end-hover)]"
+                  disabled={isSubmitting}
+                >
+                  <div className="relative z-10 flex items-center justify-center gap-2">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>正在发送...</span>
+                      </>
+                    ) : (
+                      <span>发送重置链接</span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                </Button>
+              </form>
+            )}
+
+            <p className="mt-6 text-center text-sm text-[var(--login-text-secondary)]">
               <Link
-                to="/forgot-password"
+                to="/login"
                 className="font-medium text-[var(--login-accent-text)] hover:underline"
               >
-                忘记密码？
+                返回登录
               </Link>
-              <p>
-                还没有账号？
-                <Link
-                  to="/register"
-                  className="ml-1 font-medium text-[var(--login-accent-text)] hover:underline"
-                >
-                  注册
-                </Link>
-              </p>
-            </div>
+            </p>
           </div>
         </motion.div>
 
@@ -275,4 +256,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default ForgotPasswordPage;
