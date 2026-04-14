@@ -183,7 +183,7 @@ export const WatchlistCard: React.FC<WatchlistCardProps> = ({
 
       {/* Sparkline */}
       {item.sparkline.length > 1 && (
-        <Sparkline data={item.sparkline} width={160} height={36} />
+        <Sparkline data={item.sparkline} width={160} height={36} className="w-full" />
       )}
 
       {/* Sentiment + advice */}

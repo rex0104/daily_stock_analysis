@@ -22,7 +22,7 @@ type NavItem = {
   badge?: 'completion';
 };
 
-const NAV_ITEMS: NavItem[] = [
+export const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: '首页', to: '/', icon: Home, exact: true },
   { key: 'watchlist', label: '自选', to: '/watchlist', icon: Star },
   { key: 'chat', label: '问股', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },

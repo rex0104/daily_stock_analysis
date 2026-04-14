@@ -17,12 +17,35 @@ const SharePage: React.FC = () => {
     }
 
     let cancelled = false;
+
+    const setMeta = (nameOrProp: string, content: string, useProperty = false) => {
+      const attr = useProperty ? 'property' : 'name';
+      let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${nameOrProp}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, nameOrProp);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+      return el;
+    };
+
     const fetchReport = async () => {
       try {
         const data = await shareApi.get(token);
         if (!cancelled) {
           setReport(data);
-          document.title = `${data.brandName} - ${data.stockName} 分析报告`;
+          const pageTitle = `${data.brandName} - ${data.stockName} 分析报告`;
+          document.title = pageTitle;
+          const desc = data.analysisSummary
+            ? data.analysisSummary.slice(0, 120)
+            : `${data.stockName} (${data.stockCode}) AI 量化分析报告`;
+          setMeta('og:title', pageTitle, true);
+          setMeta('og:description', desc, true);
+          setMeta('og:type', 'article', true);
+          setMeta('twitter:card', 'summary');
+          setMeta('twitter:title', pageTitle);
+          setMeta('twitter:description', desc);
         }
       } catch {
         if (!cancelled) {
@@ -38,6 +61,13 @@ const SharePage: React.FC = () => {
     void fetchReport();
     return () => {
       cancelled = true;
+      // Clean up injected meta tags
+      ['og:title', 'og:description', 'og:type'].forEach((prop) => {
+        document.querySelector(`meta[property="${prop}"]`)?.remove();
+      });
+      ['twitter:card', 'twitter:title', 'twitter:description'].forEach((name) => {
+        document.querySelector(`meta[name="${name}"]`)?.remove();
+      });
     };
   }, [token]);
 

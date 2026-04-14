@@ -207,9 +207,9 @@ const WatchlistPage: React.FC = () => {
         title={'\u6211\u7684\u81EA\u9009'}
         description={'\u6536\u85CF\u611F\u5174\u8DA3\u7684\u80A1\u7968\uFF0C\u5FEB\u901F\u67E5\u770B\u884C\u60C5\u4E0E\u5206\u6790'}
         actions={
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
             <div className="flex items-center gap-2">
-              <div className="w-64">
+              <div className="flex-1 sm:w-64 sm:flex-none">
                 <StockAutocomplete
                   value={addQuery}
                   onChange={setAddQuery}
