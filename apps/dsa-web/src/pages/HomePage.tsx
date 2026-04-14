@@ -7,10 +7,136 @@ import { StockAutocomplete } from '../components/StockAutocomplete';
 import { HistoryList } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
 import { ShareButton } from '../components/share/ShareButton';
-import { TaskPanel } from '../components/tasks';
 import { watchlistApi } from '../api/watchlist';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
+import type { AnalysisReport, TaskInfo } from '../types/analysis';
+
+// ── Analyzing banner (shown above report when tasks are running) ──────────────
+function AnalyzingBanner({ tasks }: { tasks: TaskInfo[] }) {
+  const active = tasks.filter((t) => t.status === 'pending' || t.status === 'processing');
+  if (active.length === 0) return null;
+
+  return (
+    <div className="mb-3 space-y-2">
+      {active.map((task) => {
+        const progress = Math.max(0, Math.min(100, task.progress ?? 0));
+        const isProcessing = task.status === 'processing';
+        return (
+          <div
+            key={task.taskId}
+            className="rounded-xl border border-cyan/25 bg-cyan/5 px-4 py-3"
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className={`h-1.5 w-1.5 rounded-full bg-cyan ${isProcessing ? 'animate-pulse' : ''}`}
+              />
+              <span className="text-xs font-medium text-cyan">
+                {isProcessing ? '正在分析' : '等待中'}
+              </span>
+              <span className="text-xs font-medium text-foreground">
+                {task.stockName || task.stockCode}
+              </span>
+              {task.message && (
+                <span className="min-w-0 flex-1 truncate text-xs text-muted-text">
+                  · {task.message}
+                </span>
+              )}
+              <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-text">
+                {progress}%
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/6">
+              <div
+                className="h-full rounded-full bg-cyan/80 transition-[width] duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Market sentiment panel (right column) ────────────────────────────────────
+function MarketSentimentPanel({ report }: { report: AnalysisReport | null }) {
+  const score = report?.summary?.sentimentScore;
+  const scoreColor =
+    score == null
+      ? 'text-muted-text'
+      : score >= 60
+        ? 'text-cyan'
+        : score >= 40
+          ? 'text-purple'
+          : 'text-danger';
+
+  return (
+    <div className="flex h-full flex-col gap-3 overflow-y-auto">
+      <p className="text-xs uppercase tracking-wider text-secondary-text">市场情绪</p>
+
+      {report ? (
+        <>
+          {/* Sentiment score */}
+          <div className="terminal-card rounded-2xl p-4">
+            <p className="mb-2 text-xs text-muted-text">个股情绪</p>
+            <div className="flex items-end gap-1.5">
+              <span className={`font-mono text-3xl font-bold ${scoreColor}`}>
+                {score ?? '--'}
+              </span>
+              <span className="mb-0.5 text-xs text-muted-text">/ 100</span>
+            </div>
+            {report.summary?.sentimentLabel && (
+              <p className="mt-1 text-xs text-secondary-text">{report.summary.sentimentLabel}</p>
+            )}
+          </div>
+
+          {/* Operation advice */}
+          {report.summary?.operationAdvice && (
+            <div className="terminal-card rounded-2xl p-4">
+              <p className="mb-2 text-xs text-muted-text">操作建议</p>
+              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-0.5 text-sm font-medium text-cyan">
+                {report.summary.operationAdvice}
+              </span>
+            </div>
+          )}
+
+          {/* Strategy points */}
+          {report.strategy && (
+            <div className="terminal-card rounded-2xl p-4">
+              <p className="mb-2 text-xs text-muted-text">策略点位</p>
+              <div className="space-y-2">
+                {[
+                  { label: '首选买入', value: report.strategy.idealBuy, color: 'text-danger' },
+                  { label: '次选买入', value: report.strategy.secondaryBuy, color: 'text-danger/70' },
+                  { label: '止损', value: report.strategy.stopLoss, color: 'text-success' },
+                  { label: '目标价', value: report.strategy.takeProfit, color: 'text-cyan' },
+                ]
+                  .filter((s) => s.value != null)
+                  .map((s) => (
+                    <div key={s.label} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-text">{s.label}</span>
+                      <span className={`font-mono font-semibold ${s.color}`}>{s.value}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="terminal-card rounded-2xl p-4 text-center">
+          <p className="text-xs text-muted-text">选择报告后查看</p>
+        </div>
+      )}
+
+      {/* Placeholder for future market-level sentiment */}
+      <div className="terminal-card rounded-2xl p-4 opacity-40">
+        <p className="mb-1 text-xs text-muted-text">大盘情绪</p>
+        <p className="text-xs text-muted-text">即将支持</p>
+      </div>
+    </div>
+  );
+}
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -160,7 +286,6 @@ const HomePage: React.FC = () => {
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
-        <TaskPanel tasks={activeTasks} />
         <HistoryList
           items={historyItems}
           isLoading={isLoadingHistory}
@@ -183,7 +308,6 @@ const HomePage: React.FC = () => {
       </div>
     ),
     [
-      activeTasks,
       hasMore,
       historyItems,
       isDeletingHistory,
@@ -203,160 +327,157 @@ const HomePage: React.FC = () => {
   return (
     <div
       data-testid="home-dashboard"
-      className="flex h-[calc(100vh-5rem)] w-full flex-col overflow-hidden md:flex-row sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)]"
+      className="flex h-[calc(100vh-5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)] w-full overflow-hidden"
     >
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 max-w-full lg:max-w-6xl mx-auto w-full">
-        <header className="flex min-w-0 flex-shrink-0 items-center overflow-hidden px-3 py-3 md:px-4 md:py-4">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5 md:flex-nowrap">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden -ml-1 flex-shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
-              aria-label="历史记录"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div className="relative min-w-0 flex-1">
-              <StockAutocomplete
-                value={query}
-                onChange={setQuery}
-                onSubmit={(stockCode, stockName, selectionSource) => {
-                  handleSubmitAnalysis(stockCode, stockName, selectionSource);
-                }}
-                placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
-                disabled={isAnalyzing}
-                className={inputError ? 'border-danger/50' : undefined}
-              />
-            </div>
-            <label className="flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={notify}
-                onChange={(e) => setNotify(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-border accent-primary"
-              />
-              推送通知
-            </label>
-            <button
-              type="button"
-              onClick={() => handleSubmitAnalysis()}
-              disabled={!query || isAnalyzing}
-              className="btn-primary flex h-10 flex-shrink-0 items-center gap-1.5 whitespace-nowrap"
-            >
-              {isAnalyzing ? (
-                <>
-                  <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  分析中
-                </>
-              ) : (
-                '分析'
-              )}
-            </button>
+      {/* ── Left column: analysis history ─────────────────────────── */}
+      <aside className="hidden md:flex w-64 lg:w-72 shrink-0 flex-col overflow-hidden border-r border-subtle/60 p-3">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile history drawer */}
+      {sidebarOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="page-drawer-overlay absolute inset-0" />
+          <div
+            className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {sidebarContent}
           </div>
+        </div>
+      ) : null}
+
+      {/* ── Middle column: search + task status + report ───────────── */}
+      <div className="flex-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
+
+        {/* Search bar */}
+        <header className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-hidden border-b border-subtle/60 px-3 py-3 md:px-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden -ml-1 shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
+            aria-label="历史记录"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="relative min-w-0 flex-1">
+            <StockAutocomplete
+              value={query}
+              onChange={setQuery}
+              onSubmit={(stockCode, stockName, selectionSource) => {
+                handleSubmitAnalysis(stockCode, stockName, selectionSource);
+              }}
+              placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
+              disabled={isAnalyzing}
+              className={inputError ? 'border-danger/50' : undefined}
+            />
+          </div>
+          <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
+            <input
+              type="checkbox"
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-border accent-primary"
+            />
+            推送通知
+          </label>
+          <button
+            type="button"
+            onClick={() => handleSubmitAnalysis()}
+            disabled={!query || isAnalyzing}
+            className="btn-primary flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap"
+          >
+            {isAnalyzing ? (
+              <>
+                <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                分析中
+              </>
+            ) : (
+              '分析'
+            )}
+          </button>
         </header>
 
         {inputError || duplicateError ? (
-          <div className="px-3 pb-2 md:px-4">
+          <div className="px-3 pt-2 md:px-4">
             {inputError ? (
-              <InlineAlert
-                variant="danger"
-                title="输入有误"
-                message={inputError}
-                className="rounded-xl px-3 py-2 text-xs shadow-none"
-              />
+              <InlineAlert variant="danger" title="输入有误" message={inputError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
             ) : null}
             {!inputError && duplicateError ? (
-              <InlineAlert
-                variant="warning"
-                title="任务已存在"
-                message={duplicateError}
-                className="rounded-xl px-3 py-2 text-xs shadow-none"
-              />
+              <InlineAlert variant="warning" title="任务已存在" message={duplicateError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
             ) : null}
           </div>
         ) : null}
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <div className="hidden min-h-0 w-64 shrink-0 flex-col overflow-hidden pl-4 pb-4 md:flex lg:w-72">
-            {sidebarContent}
-          </div>
-
-          {sidebarOpen ? (
-            <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
-              <div className="page-drawer-overlay absolute inset-0" />
-              <div
-                className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {sidebarContent}
-              </div>
-            </div>
+        {/* Report area */}
+        <section className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 pt-3 md:px-4 touch-pan-y">
+          {error ? (
+            <ApiErrorAlert error={error} className="mb-3" onDismiss={clearError} />
           ) : null}
 
-          <section className="flex-1 min-w-0 min-h-0 overflow-x-auto overflow-y-auto px-3 pb-4 md:px-6 touch-pan-y">
-            {error ? (
-              <ApiErrorAlert
-                error={error}
-                className="mb-3"
-                onDismiss={clearError}
+          {/* Analyzing banner — above report */}
+          <AnalyzingBanner tasks={activeTasks} />
+
+          {isLoadingReport ? (
+            <div className="flex h-full flex-col items-center justify-center">
+              <DashboardStateBlock title="加载报告中..." loading />
+            </div>
+          ) : selectedReport ? (
+            <div className="max-w-3xl space-y-4 pb-8">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  variant="home-action-ai"
+                  size="sm"
+                  disabled={selectedReport.meta.id === undefined}
+                  onClick={handleAskFollowUp}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  追问 AI
+                </Button>
+                <Button
+                  variant="home-action-ai"
+                  size="sm"
+                  disabled={selectedReport.meta.id === undefined}
+                  onClick={openMarkdownDrawer}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {reportText.fullReport}
+                </Button>
+                {selectedReport.meta.id !== undefined && (
+                  <ShareButton analysisHistoryId={selectedReport.meta.id} />
+                )}
+              </div>
+              <ReportSummary data={selectedReport} isHistory />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <EmptyState
+                title="开始分析"
+                description="输入股票代码进行分析，或从左侧选择历史报告查看。"
+                className="max-w-xl border-dashed"
+                icon={(
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                )}
               />
-            ) : null}
-            {isLoadingReport ? (
-              <div className="flex h-full flex-col items-center justify-center">
-                <DashboardStateBlock title="加载报告中..." loading />
-              </div>
-            ) : selectedReport ? (
-              <div className="max-w-4xl space-y-4 pb-8">
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button
-                    variant="home-action-ai"
-                    size="sm"
-                    disabled={selectedReport.meta.id === undefined}
-                    onClick={handleAskFollowUp}
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    追问 AI
-                  </Button>
-                  <Button
-                    variant="home-action-ai"
-                    size="sm"
-                    disabled={selectedReport.meta.id === undefined}
-                    onClick={openMarkdownDrawer}
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {reportText.fullReport}
-                  </Button>
-                  {selectedReport.meta.id !== undefined && (
-                    <ShareButton analysisHistoryId={selectedReport.meta.id} />
-                  )}
-                </div>
-                <ReportSummary data={selectedReport} isHistory />
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <EmptyState
-                  title="开始分析"
-                  description="输入股票代码进行分析，或从左侧选择历史报告查看。"
-                  className="max-w-xl border-dashed"
-                  icon={(
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  )}
-                />
-              </div>
-            )}
-          </section>
-        </div>
+            </div>
+          )}
+        </section>
       </div>
+
+      {/* ── Right column: market sentiment ────────────────────────── */}
+      <aside className="hidden xl:flex w-60 2xl:w-72 shrink-0 flex-col overflow-hidden border-l border-subtle/60 p-3">
+        <MarketSentimentPanel report={selectedReport} />
+      </aside>
 
       {markdownDrawerOpen && selectedReport?.meta.id ? (
         <ReportMarkdown
