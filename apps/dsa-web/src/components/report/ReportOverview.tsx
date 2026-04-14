@@ -4,7 +4,7 @@ import type {
   ReportMeta,
   ReportSummary as ReportSummaryType,
 } from '../../types/analysis';
-import { Badge, Card, ScoreGauge } from '../common';
+import { Badge, Card } from '../common';
 import { formatDateTime } from '../../utils/format';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
 
@@ -123,10 +123,9 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* 主信息区 - 两列布局，items-stretch 确保右侧与左侧同高 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-        {/* 左侧：股票信息与结论 */}
-        <div className="lg:col-span-2 space-y-5">
+      {/* 主信息区 */}
+      <div className="space-y-5">
+        <div className="space-y-5">
           {/* 股票头部 */}
           <Card variant="gradient" padding="md" className="home-report-hero">
             <div className="flex items-start justify-between mb-5">
@@ -267,15 +266,6 @@ export const ReportOverview: React.FC<ReportOverviewProps> = ({
           )}
         </div>
 
-        {/* 右侧：情绪指标 - 填满格子高度，消除与 STRATEGY POINTS 之间的空隙 */}
-        <div className="flex flex-col self-stretch min-h-full">
-          <Card variant="bordered" padding="md" className="home-panel-card home-rail-card !overflow-visible flex-1 flex flex-col min-h-0">
-            <div className="text-center flex-1 flex flex-col justify-center">
-              <h3 className="mb-5 text-sm font-medium tracking-wide text-foreground">{text.marketSentiment}</h3>
-              <ScoreGauge score={summary.sentimentScore} size="lg" language={reportLanguage} />
-            </div>
-          </Card>
-        </div>
       </div>
     </div>
   );
