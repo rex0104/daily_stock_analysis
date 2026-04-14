@@ -60,17 +60,34 @@ const HomePage: React.FC = () => {
     document.title = '每日选股分析 - DSA';
   }, []);
 
-  // Auto-submit analysis when navigated here with ?q= (e.g., from watchlist card)
-  const didConsumeQ = useRef(false);
+  // When navigated here with ?q= (e.g., from watchlist card):
+  // pre-fill the input and show the most recent history for that stock if available.
+  // Do NOT auto-submit a new LLM analysis — that would re-run every click.
+  const pendingQRef = useRef<string | null>(null);
+  const didSelectQRef = useRef(false);
+
   useEffect(() => {
-    if (didConsumeQ.current) return;
+    if (pendingQRef.current !== null) return; // already consumed
     const q = searchParams.get('q');
     if (!q) return;
-    didConsumeQ.current = true;
     setSearchParams({}, { replace: true });
     setQuery(q);
-    void submitAnalysis({ stockCode: q, originalQuery: q, selectionSource: 'manual' });
-  }, [searchParams, setSearchParams, setQuery, submitAnalysis]);
+    pendingQRef.current = q;
+  }, [searchParams, setSearchParams, setQuery]);
+
+  // Once history has loaded, find and select the most recent record for the target stock
+  useEffect(() => {
+    if (didSelectQRef.current) return;
+    const q = pendingQRef.current;
+    if (!q || isLoadingHistory) return;
+    const match = historyItems.find((item) => item.stockCode === q);
+    if (match?.id != null) {
+      didSelectQRef.current = true;
+      pendingQRef.current = null;
+      void selectHistoryItem(match.id);
+    }
+    // No history found: input is pre-filled; user can click "分析" manually
+  }, [historyItems, isLoadingHistory, selectHistoryItem]);
   const reportLanguage = normalizeReportLanguage(selectedReport?.meta.reportLanguage);
   const reportText = getReportText(reportLanguage);
 
