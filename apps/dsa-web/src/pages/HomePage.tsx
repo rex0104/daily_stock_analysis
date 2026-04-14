@@ -1,6 +1,6 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiErrorAlert, ConfirmDialog, Button, EmptyState, InlineAlert } from '../components/common';
 import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
@@ -14,6 +14,7 @@ import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage'
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [watchlistCodes, setWatchlistCodes] = useState<Set<string>>(new Set());
@@ -58,6 +59,18 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     document.title = '每日选股分析 - DSA';
   }, []);
+
+  // Auto-submit analysis when navigated here with ?q= (e.g., from watchlist card)
+  const didConsumeQ = useRef(false);
+  useEffect(() => {
+    if (didConsumeQ.current) return;
+    const q = searchParams.get('q');
+    if (!q) return;
+    didConsumeQ.current = true;
+    setSearchParams({}, { replace: true });
+    setQuery(q);
+    void submitAnalysis({ stockCode: q, originalQuery: q, selectionSource: 'manual' });
+  }, [searchParams, setSearchParams, setQuery, submitAnalysis]);
   const reportLanguage = normalizeReportLanguage(selectedReport?.meta.reportLanguage);
   const reportText = getReportText(reportLanguage);
 
