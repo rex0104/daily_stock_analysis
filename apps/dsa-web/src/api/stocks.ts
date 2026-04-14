@@ -1,5 +1,14 @@
 import apiClient from './index';
 
+export type KlineBar = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+};
+
 export type ExtractItem = {
   code?: string | null;
   name?: string | null;
@@ -13,6 +22,18 @@ export type ExtractFromImageResponse = {
 };
 
 export const stocksApi = {
+  async getKlineHistory(
+    stockCode: string,
+    days = 90,
+    period: 'daily' | 'weekly' | 'monthly' = 'daily',
+  ): Promise<KlineBar[]> {
+    const res = await apiClient.get(`/api/v1/stocks/${encodeURIComponent(stockCode)}/history`, {
+      params: { days, period },
+    });
+    const data = res.data as { data: KlineBar[] };
+    return data.data ?? [];
+  },
+
   async extractFromImage(file: File): Promise<ExtractFromImageResponse> {
     const formData = new FormData();
     formData.append('file', file);

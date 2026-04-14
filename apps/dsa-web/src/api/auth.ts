@@ -63,6 +63,11 @@ export const authApi = {
     });
   },
 
+  async updateNickname(nickname: string): Promise<AuthUser> {
+    const { data } = await apiClient.put<AuthUser>('/api/v1/auth/nickname', { nickname });
+    return data;
+  },
+
   async logout(): Promise<void> {
     await apiClient.post('/api/v1/auth/logout');
   },

@@ -1,19 +1,223 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiErrorAlert, ConfirmDialog, Button, EmptyState, InlineAlert } from '../components/common';
 import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
 import { HistoryList } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
 import { ShareButton } from '../components/share/ShareButton';
-import { TaskPanel } from '../components/tasks';
 import { watchlistApi } from '../api/watchlist';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
 import { getReportText, normalizeReportLanguage } from '../utils/reportLanguage';
+import type { AnalysisReport, TaskInfo } from '../types/analysis';
+
+// ── Analyzing placeholder skeleton (no report yet, task in progress) ─────────
+function AnalyzingPlaceholder({ task }: { task: TaskInfo }) {
+  const progress = Math.max(0, Math.min(100, task.progress ?? 0));
+  return (
+    <div className="max-w-3xl space-y-4 pb-8 animate-fade-in">
+      {/* Header: stock identity skeleton */}
+      <div className="terminal-card rounded-2xl p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse" />
+              <span className="text-xs font-medium text-cyan">正在分析</span>
+              <span className="text-sm font-semibold text-foreground">
+                {task.stockName || task.stockCode}
+              </span>
+            </div>
+            {task.message && (
+              <p className="text-xs text-secondary-text">{task.message}</p>
+            )}
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/6">
+              <div
+                className="h-full rounded-full bg-cyan/70 transition-[width] duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Sentiment gauge skeleton */}
+          <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border border-white/8 bg-white/4">
+            <div className="h-6 w-6 animate-pulse rounded-full bg-cyan/20" />
+          </div>
+        </div>
+        {/* Summary skeleton lines */}
+        <div className="space-y-2 pt-1">
+          <div className="h-3 w-full animate-pulse rounded-full bg-white/6" />
+          <div className="h-3 w-5/6 animate-pulse rounded-full bg-white/6" />
+          <div className="h-3 w-4/6 animate-pulse rounded-full bg-white/5" />
+        </div>
+      </div>
+
+      {/* K-line chart skeleton */}
+      <div className="terminal-card rounded-2xl p-4">
+        <div className="mb-3 h-3 w-16 animate-pulse rounded-full bg-white/6" />
+        <div className="h-[200px] animate-pulse rounded-xl bg-white/4" />
+      </div>
+
+      {/* Strategy skeleton */}
+      <div className="terminal-card rounded-2xl p-5">
+        <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-white/6" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-white/6 bg-white/3 p-3 space-y-2">
+              <div className="h-2.5 w-10 animate-pulse rounded-full bg-white/6" />
+              <div className="h-5 w-16 animate-pulse rounded-full bg-white/8" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* News skeleton */}
+      <div className="terminal-card rounded-2xl p-5 space-y-3">
+        <div className="h-3 w-16 animate-pulse rounded-full bg-white/6" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-1.5">
+            <div className="h-3 w-full animate-pulse rounded-full bg-white/6" />
+            <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-white/4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Analyzing banner (shown above report when tasks are running) ──────────────
+function AnalyzingBanner({ tasks }: { tasks: TaskInfo[] }) {
+  const active = tasks.filter((t) => t.status === 'pending' || t.status === 'processing');
+  if (active.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {active.map((task) => {
+        const progress = Math.max(0, Math.min(100, task.progress ?? 0));
+        const isProcessing = task.status === 'processing';
+        return (
+          <div
+            key={task.taskId}
+            className="rounded-xl border border-cyan/25 bg-cyan/5 px-4 py-3"
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className={`h-1.5 w-1.5 rounded-full bg-cyan ${isProcessing ? 'animate-pulse' : ''}`}
+              />
+              <span className="text-xs font-medium text-cyan">
+                {isProcessing ? '正在分析' : '等待中'}
+              </span>
+              <span className="text-xs font-medium text-foreground">
+                {task.stockName || task.stockCode}
+              </span>
+              {task.message && (
+                <span className="min-w-0 flex-1 truncate text-xs text-muted-text">
+                  · {task.message}
+                </span>
+              )}
+              <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-text">
+                {progress}%
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/6">
+              <div
+                className="h-full rounded-full bg-cyan/80 transition-[width] duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Strip strategy explanations, keep only the price token (e.g. "725.00元")
+function extractPrice(value: string): string {
+  return value.split('（')[0].split('(')[0].trim();
+}
+
+// ── Market sentiment panel (right column) ────────────────────────────────────
+function MarketSentimentPanel({ report }: { report: AnalysisReport | null }) {
+  const score = report?.summary?.sentimentScore;
+  const scoreColor =
+    score == null
+      ? 'text-muted-text'
+      : score >= 60
+        ? 'text-cyan'
+        : score >= 40
+          ? 'text-purple'
+          : 'text-danger';
+
+  return (
+    <div className="flex h-full flex-col gap-3 overflow-y-auto">
+      <p className="text-xs uppercase tracking-wider text-secondary-text">市场情绪</p>
+
+      {report ? (
+        <>
+          {/* Sentiment score */}
+          <div className="terminal-card rounded-2xl p-4">
+            <p className="mb-2 text-xs text-muted-text">个股情绪</p>
+            <div className="flex items-end gap-1.5">
+              <span className={`font-mono text-3xl font-bold ${scoreColor}`}>
+                {score ?? '--'}
+              </span>
+              <span className="mb-0.5 text-xs text-muted-text">/ 100</span>
+            </div>
+            {report.summary?.sentimentLabel && (
+              <p className="mt-1 text-xs text-secondary-text">{report.summary.sentimentLabel}</p>
+            )}
+          </div>
+
+          {/* Operation advice */}
+          {report.summary?.operationAdvice && (
+            <div className="terminal-card rounded-2xl p-4">
+              <p className="mb-2 text-xs text-muted-text">操作建议</p>
+              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-0.5 text-sm font-medium text-cyan">
+                {report.summary.operationAdvice}
+              </span>
+            </div>
+          )}
+
+          {/* Strategy points */}
+          {report.strategy && (
+            <div className="terminal-card rounded-2xl p-4">
+              <p className="mb-2 text-xs text-muted-text">策略点位</p>
+              <div className="space-y-2">
+                {[
+                  { label: '首选买入', value: report.strategy.idealBuy, color: 'text-danger' },
+                  { label: '次选买入', value: report.strategy.secondaryBuy, color: 'text-danger/70' },
+                  { label: '止损', value: report.strategy.stopLoss, color: 'text-success' },
+                  { label: '目标价', value: report.strategy.takeProfit, color: 'text-cyan' },
+                ]
+                  .filter((s) => s.value != null)
+                  .map((s) => (
+                    <div key={s.label} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-text">{s.label}</span>
+                      <span className={`font-mono font-semibold ${s.color}`}>{extractPrice(s.value!)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="terminal-card rounded-2xl p-4 text-center">
+          <p className="text-xs text-muted-text">选择报告后查看</p>
+        </div>
+      )}
+
+      {/* Placeholder for future market-level sentiment */}
+      <div className="terminal-card rounded-2xl p-4 opacity-40">
+        <p className="mb-1 text-xs text-muted-text">大盘情绪</p>
+        <p className="text-xs text-muted-text">即将支持</p>
+      </div>
+    </div>
+  );
+}
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [watchlistCodes, setWatchlistCodes] = useState<Set<string>>(new Set());
@@ -58,6 +262,35 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     document.title = '每日选股分析 - DSA';
   }, []);
+
+  // When navigated here with ?q= (e.g., from watchlist card):
+  // pre-fill the input and show the most recent history for that stock if available.
+  // Do NOT auto-submit a new LLM analysis — that would re-run every click.
+  const pendingQRef = useRef<string | null>(null);
+  const didSelectQRef = useRef(false);
+
+  useEffect(() => {
+    if (pendingQRef.current !== null) return; // already consumed
+    const q = searchParams.get('q');
+    if (!q) return;
+    setSearchParams({}, { replace: true });
+    setQuery(q);
+    pendingQRef.current = q;
+  }, [searchParams, setSearchParams, setQuery]);
+
+  // Once history has loaded, find and select the most recent record for the target stock
+  useEffect(() => {
+    if (didSelectQRef.current) return;
+    const q = pendingQRef.current;
+    if (!q || isLoadingHistory) return;
+    const match = historyItems.find((item) => item.stockCode === q);
+    if (match?.id != null) {
+      didSelectQRef.current = true;
+      pendingQRef.current = null;
+      void selectHistoryItem(match.id);
+    }
+    // No history found: input is pre-filled; user can click "分析" manually
+  }, [historyItems, isLoadingHistory, selectHistoryItem]);
   const reportLanguage = normalizeReportLanguage(selectedReport?.meta.reportLanguage);
   const reportText = getReportText(reportLanguage);
 
@@ -130,7 +363,6 @@ const HomePage: React.FC = () => {
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
-        <TaskPanel tasks={activeTasks} />
         <HistoryList
           items={historyItems}
           isLoading={isLoadingHistory}
@@ -153,7 +385,6 @@ const HomePage: React.FC = () => {
       </div>
     ),
     [
-      activeTasks,
       hasMore,
       historyItems,
       isDeletingHistory,
@@ -173,115 +404,105 @@ const HomePage: React.FC = () => {
   return (
     <div
       data-testid="home-dashboard"
-      className="flex h-[calc(100vh-5rem)] w-full flex-col overflow-hidden md:flex-row sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)]"
+      className="flex h-[calc(100vh-5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)] w-full flex-col overflow-hidden"
     >
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 max-w-full lg:max-w-6xl mx-auto w-full">
-        <header className="flex min-w-0 flex-shrink-0 items-center overflow-hidden px-3 py-3 md:px-4 md:py-4">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5 md:flex-nowrap">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden -ml-1 flex-shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
-              aria-label="历史记录"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      {/* ── Full-width search header (all three columns align below) ── */}
+      <header className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-hidden border-b border-subtle/60 px-3 py-3 md:px-4">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden -ml-1 shrink-0 rounded-lg p-1.5 text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
+          aria-label="历史记录"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div className="relative min-w-0 flex-1">
+          <StockAutocomplete
+            value={query}
+            onChange={setQuery}
+            onSubmit={(stockCode, stockName, selectionSource) => {
+              handleSubmitAnalysis(stockCode, stockName, selectionSource);
+            }}
+            placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
+            disabled={isAnalyzing}
+            className={inputError ? 'border-danger/50' : undefined}
+          />
+        </div>
+        <label className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
+          <input
+            type="checkbox"
+            checked={notify}
+            onChange={(e) => setNotify(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-border accent-primary"
+          />
+          推送通知
+        </label>
+        <button
+          type="button"
+          onClick={() => handleSubmitAnalysis()}
+          disabled={!query || isAnalyzing}
+          className="btn-primary flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap"
+        >
+          {isAnalyzing ? (
+            <>
+              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-            </button>
-            <div className="relative min-w-0 flex-1">
-              <StockAutocomplete
-                value={query}
-                onChange={setQuery}
-                onSubmit={(stockCode, stockName, selectionSource) => {
-                  handleSubmitAnalysis(stockCode, stockName, selectionSource);
-                }}
-                placeholder="输入股票代码或名称，如 600519、贵州茅台、AAPL"
-                disabled={isAnalyzing}
-                className={inputError ? 'border-danger/50' : undefined}
-              />
-            </div>
-            <label className="flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={notify}
-                onChange={(e) => setNotify(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-border accent-primary"
-              />
-              推送通知
-            </label>
-            <button
-              type="button"
-              onClick={() => handleSubmitAnalysis()}
-              disabled={!query || isAnalyzing}
-              className="btn-primary flex h-10 flex-shrink-0 items-center gap-1.5 whitespace-nowrap"
-            >
-              {isAnalyzing ? (
-                <>
-                  <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  分析中
-                </>
-              ) : (
-                '分析'
-              )}
-            </button>
-          </div>
-        </header>
+              分析中
+            </>
+          ) : (
+            '分析'
+          )}
+        </button>
+      </header>
 
-        {inputError || duplicateError ? (
-          <div className="px-3 pb-2 md:px-4">
-            {inputError ? (
-              <InlineAlert
-                variant="danger"
-                title="输入有误"
-                message={inputError}
-                className="rounded-xl px-3 py-2 text-xs shadow-none"
-              />
-            ) : null}
-            {!inputError && duplicateError ? (
-              <InlineAlert
-                variant="warning"
-                title="任务已存在"
-                message={duplicateError}
-                className="rounded-xl px-3 py-2 text-xs shadow-none"
-              />
-            ) : null}
+      {inputError || duplicateError ? (
+        <div className="shrink-0 px-3 pt-2 md:px-4">
+          {inputError ? (
+            <InlineAlert variant="danger" title="输入有误" message={inputError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
+          ) : null}
+          {!inputError && duplicateError ? (
+            <InlineAlert variant="warning" title="任务已存在" message={duplicateError} className="rounded-xl px-3 py-2 text-xs shadow-none" />
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* ── Three-column body ─────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* Left column: analysis history */}
+        <aside className="hidden md:flex w-64 lg:w-72 shrink-0 flex-col overflow-hidden border-r border-subtle/60 p-3">
+          {sidebarContent}
+        </aside>
+
+        {/* Mobile history drawer */}
+        {sidebarOpen ? (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+            <div className="page-drawer-overlay absolute inset-0" />
+            <div
+              className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {sidebarContent}
+            </div>
           </div>
         ) : null}
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <div className="hidden min-h-0 w-64 shrink-0 flex-col overflow-hidden pl-4 pb-4 md:flex lg:w-72">
-            {sidebarContent}
-          </div>
+        {/* Middle column */}
+        <div className="flex-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
 
-          {sidebarOpen ? (
-            <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
-              <div className="page-drawer-overlay absolute inset-0" />
-              <div
-                className="dashboard-card absolute bottom-0 left-0 top-0 flex w-72 flex-col overflow-hidden !rounded-none !rounded-r-xl p-3 shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {sidebarContent}
-              </div>
-            </div>
-          ) : null}
-
-          <section className="flex-1 min-w-0 min-h-0 overflow-x-auto overflow-y-auto px-3 pb-4 md:px-6 touch-pan-y">
-            {error ? (
-              <ApiErrorAlert
-                error={error}
-                className="mb-3"
-                onDismiss={clearError}
-              />
-            ) : null}
-            {isLoadingReport ? (
-              <div className="flex h-full flex-col items-center justify-center">
-                <DashboardStateBlock title="加载报告中..." loading />
-              </div>
-            ) : selectedReport ? (
-              <div className="max-w-4xl space-y-4 pb-8">
-                <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* ── Banner + action buttons on the same row ── */}
+          {(activeTasks.length > 0 || selectedReport) && (
+            <div className="flex shrink-0 items-center gap-3 border-b border-subtle/60 px-3 py-2 md:px-4">
+              {activeTasks.length > 0 && (
+                <div className="min-w-0 flex-1">
+                  <AnalyzingBanner tasks={activeTasks} />
+                </div>
+              )}
+              {selectedReport && (
+                <div className="flex shrink-0 items-center gap-2 ml-auto">
                   <Button
                     variant="home-action-ai"
                     size="sm"
@@ -308,8 +529,26 @@ const HomePage: React.FC = () => {
                     <ShareButton analysisHistoryId={selectedReport.meta.id} />
                   )}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Report / placeholder / empty */}
+          <section className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 pt-3 md:px-4 touch-pan-y">
+            {error ? (
+              <ApiErrorAlert error={error} className="mb-3" onDismiss={clearError} />
+            ) : null}
+
+            {isLoadingReport ? (
+              <div className="flex h-full flex-col items-center justify-center">
+                <DashboardStateBlock title="加载报告中..." loading />
+              </div>
+            ) : selectedReport ? (
+              <div className="max-w-3xl space-y-4 pb-8">
                 <ReportSummary data={selectedReport} isHistory />
               </div>
+            ) : activeTasks.length > 0 ? (
+              <AnalyzingPlaceholder task={activeTasks[0]} />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <EmptyState
@@ -326,6 +565,11 @@ const HomePage: React.FC = () => {
             )}
           </section>
         </div>
+
+        {/* Right column: market sentiment */}
+        <aside className="hidden xl:flex w-60 2xl:w-72 shrink-0 flex-col overflow-hidden border-l border-subtle/60 p-3">
+          <MarketSentimentPanel report={selectedReport} />
+        </aside>
       </div>
 
       {markdownDrawerOpen && selectedReport?.meta.id ? (

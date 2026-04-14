@@ -5,6 +5,7 @@ import { createParsedApiError, getParsedApiError, type ParsedApiError } from '..
 import { systemConfigApi } from '../api/systemConfig';
 import { ApiErrorAlert, Button, ConfirmDialog, EmptyState } from '../components/common';
 import {
+  ChangeNicknameCard,
   ChangePasswordCard,
   IntelligentImport,
   LLMChannelEditor,
@@ -414,7 +415,10 @@ const SettingsPage: React.FC = () => {
               <ScheduleCard />
             ) : null}
             {activeCategory === 'system' && loggedIn ? (
-              <ChangePasswordCard />
+              <>
+                <ChangeNicknameCard />
+                <ChangePasswordCard />
+              </>
             ) : null}
             {activeItems.length ? (
               <SettingsSectionCard

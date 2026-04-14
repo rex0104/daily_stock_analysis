@@ -1,5 +1,6 @@
 export * from './LLMChannelEditor';
 export * from './SettingsAlert';
+export * from './ChangeNicknameCard';
 export * from './ChangePasswordCard';
 export * from './IntelligentImport';
 export * from './SettingsField';

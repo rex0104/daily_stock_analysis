@@ -327,6 +327,30 @@ async def auth_change_password(request: Request, body: ChangePasswordRequest):
     return Response(status_code=204)
 
 
+@router.put(
+    "/nickname",
+    summary="Update nickname",
+    description="Update the current user's display nickname.",
+)
+async def auth_update_nickname(request: Request, body: dict):
+    """Update nickname for the logged-in user."""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "unauthorized", "message": "Not logged in"})
+
+    nickname = (body.get("nickname") or "").strip()
+    if not nickname:
+        return JSONResponse(status_code=400, content={"error": "invalid_nickname", "message": "昵称不能为空"})
+
+    svc = _get_user_service()
+    try:
+        user = svc.update_nickname(user_id, nickname)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": "invalid_nickname", "message": str(exc)})
+
+    return {"id": user["id"], "email": user["email"], "nickname": user["nickname"]}
+
+
 @router.post(
     "/logout",
     summary="Logout",

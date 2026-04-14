@@ -26,6 +26,7 @@ type AuthContextValue = {
     newPassword: string,
     newPasswordConfirm: string
   ) => Promise<{ success: boolean; error?: ParsedApiError }>;
+  updateNickname: (nickname: string) => Promise<{ success: boolean; error?: ParsedApiError }>;
   logout: () => Promise<void>;
   refreshStatus: () => Promise<void>;
 };
@@ -131,6 +132,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateNickname = useCallback(
+    async (nickname: string): Promise<{ success: boolean; error?: ParsedApiError }> => {
+      try {
+        const updated = await authApi.updateNickname(nickname);
+        setUser((prev) => prev ? { ...prev, nickname: updated.nickname } : prev);
+        return { success: true };
+      } catch (err: unknown) {
+        return { success: false, error: getParsedApiError(err) };
+      }
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     let logoutError: unknown = null;
     try {
@@ -159,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         login,
         changePassword,
+        updateNickname,
         logout,
         refreshStatus: fetchStatus,
       }}
