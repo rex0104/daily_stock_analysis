@@ -547,7 +547,7 @@ const BacktestPage: React.FC = () => {
                             {actualMovementBadge(row.actualMovement)}
                             <span className={
                               row.actualReturnPct != null
-                                ? row.actualReturnPct > 0 ? 'text-success' : row.actualReturnPct < 0 ? 'text-danger' : 'text-secondary-text'
+                                ? row.actualReturnPct > 0 ? 'text-danger' : row.actualReturnPct < 0 ? 'text-success' : 'text-secondary-text'
                                 : 'text-muted-text'
                             }>
                               {pct(row.actualReturnPct)}

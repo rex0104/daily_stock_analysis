@@ -981,7 +981,7 @@ const PortfolioPage: React.FC = () => {
                       <td className="py-2 pr-2 text-right">{row.avgCost.toFixed(4)}</td>
                       <td className="py-2 pr-2 text-right">{row.lastPrice.toFixed(4)}</td>
                       <td className="py-2 pr-2 text-right">{formatMoney(row.marketValueBase, row.valuationCurrency)}</td>
-                      <td className={`py-2 text-right ${row.unrealizedPnlBase >= 0 ? 'text-success' : 'text-danger'}`}>
+                      <td className={`py-2 text-right ${row.unrealizedPnlBase >= 0 ? 'text-danger' : 'text-success'}`}>
                         {formatMoney(row.unrealizedPnlBase, row.valuationCurrency)}
                       </td>
                     </tr>

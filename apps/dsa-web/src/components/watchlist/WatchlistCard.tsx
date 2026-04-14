@@ -43,8 +43,8 @@ function sentimentColorClass(score: number): string {
 }
 
 function pctColorClass(value: number): string {
-  if (value > 0) return 'text-success';
-  if (value < 0) return 'text-danger';
+  if (value > 0) return 'text-danger';
+  if (value < 0) return 'text-success';
   return 'text-muted-text';
 }
 
