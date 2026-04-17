@@ -11,6 +11,9 @@ const UP_COLOR = '#ef4444';
 const DOWN_COLOR = '#22c55e';
 const MA5_COLOR = '#f59e0b';   // amber
 const MA20_COLOR = '#a78bfa';  // purple
+const BUY_COLOR = '#22c55e';
+const STOPLOSS_COLOR = '#ef4444';
+const TARGET_COLOR = '#eab308';
 
 type Period = 'daily' | 'weekly';
 
@@ -33,6 +36,8 @@ interface KLineChartProps {
 export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, onDataLoaded }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const onDataLoadedRef = useRef(onDataLoaded);
+  onDataLoadedRef.current = onDataLoaded;
   const [bars, setBars] = useState<KlineBar[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('daily');
@@ -51,17 +56,17 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
         if (!cancelled) {
           setBars(data);
           // Compute MA20 values and notify parent
-          if (onDataLoaded && data.length > 0) {
+          if (onDataLoadedRef.current && data.length > 0) {
             const ma20Data = calcMA(data, 20);
             const ma20Values = ma20Data.map((d) => d.value);
-            onDataLoaded(data, ma20Values);
+            onDataLoadedRef.current(data, ma20Values);
           }
         }
       })
       .catch(() => { if (!cancelled) setBars([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [stockCode, period, onDataLoaded]);
+  }, [stockCode, period]);
 
   // Create / recreate chart whenever data, theme, annotations, or toggle changes
   useEffect(() => {
@@ -167,7 +172,7 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
 
     // ── Annotations ────────────────────────────────────────────────
     if (showAnnotations && annotations) {
-      // Support band (green semi-transparent area)
+      // Support band (green semi-transparent area between supportLow and supportHigh)
       if (annotations.support) {
         const { supportLow, supportHigh, resistanceLow, resistanceHigh } = annotations.support;
 
@@ -180,27 +185,13 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
           lastValueVisible: false,
           priceLineVisible: false,
           crosshairMarkerVisible: false,
+          baseValue: { type: 'price', price: supportLow },
         });
-        // Render support band as a flat area between supportLow and supportHigh
         supportSeries.setData(
           bars.map((b) => ({ time: b.date as Time, value: supportHigh })),
         );
-        // Overlay the bottom of the support band via a second area series
-        const supportBottomSeries = chart.addAreaSeries({
-          topColor: 'rgba(34,197,94,0)',
-          bottomColor: 'rgba(34,197,94,0)',
-          lineColor: 'rgba(34,197,94,0.4)',
-          lineWidth: 1,
-          priceScaleId: 'right',
-          lastValueVisible: false,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        supportBottomSeries.setData(
-          bars.map((b) => ({ time: b.date as Time, value: supportLow })),
-        );
 
-        // Resistance band (red semi-transparent area)
+        // Resistance band (red semi-transparent area between resistanceLow and resistanceHigh)
         const resistanceSeries = chart.addAreaSeries({
           topColor: 'rgba(239,68,68,0.15)',
           bottomColor: 'rgba(239,68,68,0.03)',
@@ -210,22 +201,10 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
           lastValueVisible: false,
           priceLineVisible: false,
           crosshairMarkerVisible: false,
+          baseValue: { type: 'price', price: resistanceLow },
         });
         resistanceSeries.setData(
           bars.map((b) => ({ time: b.date as Time, value: resistanceHigh })),
-        );
-        const resistanceBottomSeries = chart.addAreaSeries({
-          topColor: 'rgba(239,68,68,0)',
-          bottomColor: 'rgba(239,68,68,0)',
-          lineColor: 'rgba(239,68,68,0.4)',
-          lineWidth: 1,
-          priceScaleId: 'right',
-          lastValueVisible: false,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        resistanceBottomSeries.setData(
-          bars.map((b) => ({ time: b.date as Time, value: resistanceLow })),
         );
       }
 
@@ -236,14 +215,14 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
           {
             time: lastBar.date as Time,
             position: 'belowBar',
-            color: '#22c55e',
+            color: BUY_COLOR,
             shape: 'arrowUp',
-            text: '买入',
+            text: `买 ${annotations.buyPoint}`,
           },
         ]);
         candleSeries.createPriceLine({
           price: annotations.buyPoint,
-          color: '#22c55e',
+          color: BUY_COLOR,
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
@@ -255,7 +234,7 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
       if (annotations.stopLoss != null) {
         candleSeries.createPriceLine({
           price: annotations.stopLoss,
-          color: '#ef4444',
+          color: STOPLOSS_COLOR,
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
@@ -267,7 +246,7 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
       if (annotations.targetPrice != null) {
         candleSeries.createPriceLine({
           price: annotations.targetPrice,
-          color: '#eab308',
+          color: TARGET_COLOR,
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
@@ -312,23 +291,23 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
               MA20
             </span>
             {/* Annotation legend items */}
-            {hasAnnotations && showAnnotations && annotations && (
+            {showAnnotations && annotations && (
               <>
                 {annotations.buyPoint != null && (
                   <span className="flex items-center gap-1">
-                    <span style={{ color: '#22c55e' }}>▲</span>
+                    <span style={{ color: BUY_COLOR }}>▲</span>
                     <span>买入</span>
                   </span>
                 )}
                 {annotations.stopLoss != null && (
                   <span className="flex items-center gap-1">
-                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: '#ef4444' }} />
+                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: STOPLOSS_COLOR }} />
                     <span>止损</span>
                   </span>
                 )}
                 {annotations.targetPrice != null && (
                   <span className="flex items-center gap-1">
-                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: '#eab308' }} />
+                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: TARGET_COLOR }} />
                     <span>目标</span>
                   </span>
                 )}
