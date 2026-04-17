@@ -1,9 +1,10 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
+import { createChart, ColorType, CrosshairMode, LineStyle } from 'lightweight-charts';
 import type { IChartApi, Time } from 'lightweight-charts';
 import { useTheme } from 'next-themes';
 import { stocksApi, type KlineBar } from '../../api/stocks';
+import type { ChartAnnotations } from '../../utils/chartAnnotations';
 
 // CN stock color convention: up = red, down = green
 const UP_COLOR = '#ef4444';
@@ -25,14 +26,17 @@ function calcMA(bars: KlineBar[], period: number): { time: Time; value: number }
 
 interface KLineChartProps {
   stockCode: string;
+  annotations?: ChartAnnotations;
+  onDataLoaded?: (bars: KlineBar[], ma20: number[]) => void;
 }
 
-export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
+export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, onDataLoaded }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [bars, setBars] = useState<KlineBar[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('daily');
+  const [showAnnotations, setShowAnnotations] = useState(true);
   const { resolvedTheme } = useTheme();
 
   // Fetch K-line data whenever stock or period changes
@@ -43,13 +47,23 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
     const days = period === 'daily' ? 90 : 365;
     stocksApi
       .getKlineHistory(stockCode, days, period)
-      .then((data) => { if (!cancelled) setBars(data); })
+      .then((data) => {
+        if (!cancelled) {
+          setBars(data);
+          // Compute MA20 values and notify parent
+          if (onDataLoaded && data.length > 0) {
+            const ma20Data = calcMA(data, 20);
+            const ma20Values = ma20Data.map((d) => d.value);
+            onDataLoaded(data, ma20Values);
+          }
+        }
+      })
       .catch(() => { if (!cancelled) setBars([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [stockCode, period]);
+  }, [stockCode, period, onDataLoaded]);
 
-  // Create / recreate chart whenever data or theme changes
+  // Create / recreate chart whenever data, theme, annotations, or toggle changes
   useEffect(() => {
     if (!containerRef.current || !bars || bars.length === 0) return;
 
@@ -57,11 +71,18 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
 
+    // Determine background tint from trend annotation
+    let bgColor = 'transparent';
+    if (showAnnotations && annotations) {
+      if (annotations.trend === 'up') bgColor = 'rgba(34,197,94,0.04)';
+      else if (annotations.trend === 'down') bgColor = 'rgba(239,68,68,0.04)';
+    }
+
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 300,
       layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
+        background: { type: ColorType.Solid, color: bgColor },
         textColor,
         fontSize: 11,
       },
@@ -144,6 +165,117 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
       ma20.setData(ma20Data);
     }
 
+    // ── Annotations ────────────────────────────────────────────────
+    if (showAnnotations && annotations) {
+      // Support band (green semi-transparent area)
+      if (annotations.support) {
+        const { supportLow, supportHigh, resistanceLow, resistanceHigh } = annotations.support;
+
+        const supportSeries = chart.addAreaSeries({
+          topColor: 'rgba(34,197,94,0.15)',
+          bottomColor: 'rgba(34,197,94,0.03)',
+          lineColor: 'rgba(34,197,94,0.4)',
+          lineWidth: 1,
+          priceScaleId: 'right',
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        // Render support band as a flat area between supportLow and supportHigh
+        supportSeries.setData(
+          bars.map((b) => ({ time: b.date as Time, value: supportHigh })),
+        );
+        // Overlay the bottom of the support band via a second area series
+        const supportBottomSeries = chart.addAreaSeries({
+          topColor: 'rgba(34,197,94,0)',
+          bottomColor: 'rgba(34,197,94,0)',
+          lineColor: 'rgba(34,197,94,0.4)',
+          lineWidth: 1,
+          priceScaleId: 'right',
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        supportBottomSeries.setData(
+          bars.map((b) => ({ time: b.date as Time, value: supportLow })),
+        );
+
+        // Resistance band (red semi-transparent area)
+        const resistanceSeries = chart.addAreaSeries({
+          topColor: 'rgba(239,68,68,0.15)',
+          bottomColor: 'rgba(239,68,68,0.03)',
+          lineColor: 'rgba(239,68,68,0.4)',
+          lineWidth: 1,
+          priceScaleId: 'right',
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        resistanceSeries.setData(
+          bars.map((b) => ({ time: b.date as Time, value: resistanceHigh })),
+        );
+        const resistanceBottomSeries = chart.addAreaSeries({
+          topColor: 'rgba(239,68,68,0)',
+          bottomColor: 'rgba(239,68,68,0)',
+          lineColor: 'rgba(239,68,68,0.4)',
+          lineWidth: 1,
+          priceScaleId: 'right',
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        resistanceBottomSeries.setData(
+          bars.map((b) => ({ time: b.date as Time, value: resistanceLow })),
+        );
+      }
+
+      // Buy point: green up-arrow marker on the last bar + green dashed price line
+      if (annotations.buyPoint != null) {
+        const lastBar = bars[bars.length - 1];
+        candleSeries.setMarkers([
+          {
+            time: lastBar.date as Time,
+            position: 'belowBar',
+            color: '#22c55e',
+            shape: 'arrowUp',
+            text: '买入',
+          },
+        ]);
+        candleSeries.createPriceLine({
+          price: annotations.buyPoint,
+          color: '#22c55e',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '买入',
+        });
+      }
+
+      // Stop-loss: red dashed price line
+      if (annotations.stopLoss != null) {
+        candleSeries.createPriceLine({
+          price: annotations.stopLoss,
+          color: '#ef4444',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '止损',
+        });
+      }
+
+      // Target price: gold dashed price line
+      if (annotations.targetPrice != null) {
+        candleSeries.createPriceLine({
+          price: annotations.targetPrice,
+          color: '#eab308',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '目标',
+        });
+      }
+    }
+
     chart.timeScale().fitContent();
 
     // Responsive resize
@@ -160,7 +292,9 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
       chart.remove();
       chartRef.current = null;
     };
-  }, [bars, resolvedTheme]);
+  }, [bars, resolvedTheme, annotations, showAnnotations]);
+
+  const hasAnnotations = annotations != null;
 
   return (
     <div className="terminal-card rounded-2xl p-4">
@@ -177,25 +311,65 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode }) => {
               <span className="inline-block h-0.5 w-4 rounded" style={{ background: MA20_COLOR }} />
               MA20
             </span>
+            {/* Annotation legend items */}
+            {hasAnnotations && showAnnotations && annotations && (
+              <>
+                {annotations.buyPoint != null && (
+                  <span className="flex items-center gap-1">
+                    <span style={{ color: '#22c55e' }}>▲</span>
+                    <span>买入</span>
+                  </span>
+                )}
+                {annotations.stopLoss != null && (
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: '#ef4444' }} />
+                    <span>止损</span>
+                  </span>
+                )}
+                {annotations.targetPrice != null && (
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-0.5 w-4 rounded border-t border-dashed" style={{ borderColor: '#eab308' }} />
+                    <span>目标</span>
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Period toggle */}
-        <div className="flex overflow-hidden rounded-lg border border-subtle text-xs">
-          {(['daily', 'weekly'] as Period[]).map((p) => (
+        <div className="flex items-center gap-2">
+          {/* Annotation toggle button */}
+          {hasAnnotations && (
             <button
-              key={p}
               type="button"
-              onClick={() => setPeriod(p)}
-              className={`px-2.5 py-0.5 transition-colors ${
-                period === p
+              onClick={() => setShowAnnotations((v) => !v)}
+              className={`rounded px-2 py-0.5 text-[10px] transition-colors ${
+                showAnnotations
                   ? 'bg-surface text-foreground'
-                  : 'text-secondary-text hover:text-foreground'
+                  : 'text-muted-text hover:text-foreground'
               }`}
             >
-              {p === 'daily' ? '日K' : '周K'}
+              AI 标注{showAnnotations ? ' ✓' : ''}
             </button>
-          ))}
+          )}
+
+          {/* Period toggle */}
+          <div className="flex overflow-hidden rounded-lg border border-subtle text-xs">
+            {(['daily', 'weekly'] as Period[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-2.5 py-0.5 transition-colors ${
+                  period === p
+                    ? 'bg-surface text-foreground'
+                    : 'text-secondary-text hover:text-foreground'
+                }`}
+              >
+                {p === 'daily' ? '日K' : '周K'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
