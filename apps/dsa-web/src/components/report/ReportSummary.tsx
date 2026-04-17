@@ -1,11 +1,13 @@
-import React from 'react';
-import type { AnalysisResult, AnalysisReport } from '../../types/analysis';
+import React, { useState, useCallback } from 'react';
+import type { AnalysisResult, AnalysisReport, ReportStrategy as ReportStrategyType } from '../../types/analysis';
 import { ReportOverview } from './ReportOverview';
 import { KLineChart } from './KLineChart';
 import { ReportStrategy } from './ReportStrategy';
 import { ReportNews } from './ReportNews';
 import { ReportDetails } from './ReportDetails';
 import { getReportText, normalizeReportLanguage } from '../../utils/reportLanguage';
+import { extractAnnotations, type ChartAnnotations } from '../../utils/chartAnnotations';
+import type { KlineBar } from '../../api/stocks';
 
 interface ReportSummaryProps {
   data: AnalysisResult | AnalysisReport;
@@ -33,6 +35,24 @@ export const ReportSummary: React.FC<ReportSummaryProps> = ({
     modelUsed && !['unknown', 'error', 'none', 'null', 'n/a'].includes(modelUsed.toLowerCase()),
   );
 
+  const [chartAnnotations, setChartAnnotations] = useState<ChartAnnotations | undefined>();
+
+  const handleKlineDataLoaded = useCallback(
+    (bars: KlineBar[], ma20Values: number[]) => {
+      if (summary) {
+        setChartAnnotations(
+          extractAnnotations(
+            (strategy ?? {}) as ReportStrategyType,
+            summary,
+            bars,
+            ma20Values,
+          ),
+        );
+      }
+    },
+    [strategy, summary],
+  );
+
   return (
     <div className="space-y-5 pb-8 animate-fade-in">
       {/* 概览区（首屏） */}
@@ -44,7 +64,11 @@ export const ReportSummary: React.FC<ReportSummaryProps> = ({
       />
 
       {/* K线图 */}
-      <KLineChart stockCode={meta.stockCode} />
+      <KLineChart
+        stockCode={meta.stockCode}
+        annotations={chartAnnotations}
+        onDataLoaded={handleKlineDataLoaded}
+      />
 
       {/* 策略点位区 */}
       <ReportStrategy strategy={strategy} language={reportLanguage} />
