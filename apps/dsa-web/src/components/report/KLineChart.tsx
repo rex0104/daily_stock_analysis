@@ -37,7 +37,7 @@ export const KLineChart: React.FC<KLineChartProps> = ({ stockCode, annotations, 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const onDataLoadedRef = useRef(onDataLoaded);
-  onDataLoadedRef.current = onDataLoaded;
+  useEffect(() => { onDataLoadedRef.current = onDataLoaded; });
   const [bars, setBars] = useState<KlineBar[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('daily');
