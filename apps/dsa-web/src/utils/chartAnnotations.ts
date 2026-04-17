@@ -102,8 +102,9 @@ export function calcSupportResistance(
  * Determine chart trend from LLM trend text and an array of MA20 values.
  *
  * MA slope is calculated as (last − first) / first using the first and last
- * elements of `ma20Values`. When the absolute slope is less than 1%, the
- * function forces "sideways" regardless of text content.
+ * elements of a trailing 10-element window of `ma20Values`. This limits the
+ * slope to ~10 trading days rather than the full history. When the absolute
+ * slope is less than 1%, the function forces "sideways" regardless of text content.
  *
  * Keyword priority (highest first):
  *   1. Sideways: 震荡 | 横盘
@@ -118,8 +119,10 @@ export function determineTrend(
   // Cannot compute slope with fewer than 2 points.
   if (ma20Values.length < 2) return 'sideways';
 
-  const first = ma20Values[0];
-  const last = ma20Values[ma20Values.length - 1];
+  // Use a trailing 10-element window to capture recent trend (~10 trading days).
+  const window = ma20Values.slice(-10);
+  const first = window[0];
+  const last = window[window.length - 1];
   const slope = first === 0 ? 0 : Math.abs((last - first) / first);
 
   if (slope < 0.01) return 'sideways';

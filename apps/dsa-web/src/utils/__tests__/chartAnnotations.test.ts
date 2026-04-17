@@ -198,6 +198,20 @@ describe('determineTrend', () => {
     // 5-element array: first=10, last=12 → slope = (12-10)/10 = 20% >= 1%
     expect(determineTrend('上涨', [10, 10.1, 10.5, 11, 12])).toBe('up');
   });
+
+  it('returns "sideways" when long array trends up overall but last 10 are flat', () => {
+    // 30 values: first 20 rise strongly from 10 to 20, last 10 are flat around 20
+    const rising = Array.from({ length: 20 }, (_, i) => 10 + i * 0.5); // 10..19.5
+    const flat = Array.from({ length: 10 }, () => 20);                  // 20..20
+    const ma20Values = [...rising, ...flat];
+    // Overall slope is huge, but last 10 window: first=20, last=20 → slope=0% < 1%
+    expect(determineTrend('上涨', ma20Values)).toBe('sideways');
+  });
+
+  it('returns "sideways" when first MA20 value in the window is 0', () => {
+    // window[0] === 0 → slope guard triggers → sideways
+    expect(determineTrend('上涨', [0, 5])).toBe('sideways');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -278,5 +292,11 @@ describe('extractAnnotations', () => {
     const strategy: ReportStrategy = {};
     const result = extractAnnotations(strategy, baseSummary, fewBars, [10, 11]);
     expect(result.support).toBeUndefined();
+  });
+
+  it('returns trend "sideways" when ma20Values is empty', () => {
+    const strategy: ReportStrategy = {};
+    const result = extractAnnotations(strategy, baseSummary, baseBars, []);
+    expect(result.trend).toBe('sideways');
   });
 });
