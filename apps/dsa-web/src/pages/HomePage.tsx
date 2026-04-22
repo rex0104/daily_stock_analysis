@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ApiErrorAlert, ConfirmDialog, Button, EmptyState, InlineAlert } from '../components/common';
+import { AppPage } from '../components/common/AppPage';
 import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
 import { HistoryList } from '../components/history';
@@ -265,19 +266,31 @@ const HomePage: React.FC = () => {
   }, []);
 
   // When navigated here with ?q= (e.g., from watchlist card):
-  // pre-fill the input and show the most recent history for that stock if available.
-  // Do NOT auto-submit a new LLM analysis — that would re-run every click.
+  // - default: pre-fill input and show the most recent history record for that stock.
+  // - ?force=1: immediately trigger a fresh analysis (force_refresh=true).
   const pendingQRef = useRef<string | null>(null);
   const didSelectQRef = useRef(false);
 
   useEffect(() => {
-    if (pendingQRef.current !== null) return; // already consumed
+    if (pendingQRef.current !== null) return;
     const q = searchParams.get('q');
     if (!q) return;
+    const force = searchParams.get('force') === '1';
     setSearchParams({}, { replace: true });
     setQuery(q);
     pendingQRef.current = q;
-  }, [searchParams, setSearchParams, setQuery]);
+    if (force) {
+      // Skip the history-select path and trigger a fresh analysis.
+      didSelectQRef.current = true;
+      pendingQRef.current = null;
+      void submitAnalysis({
+        stockCode: q,
+        originalQuery: q,
+        selectionSource: 'manual',
+        forceRefresh: true,
+      });
+    }
+  }, [searchParams, setSearchParams, setQuery, submitAnalysis]);
 
   // Once history has loaded, find and select the most recent record for the target stock
   useEffect(() => {
@@ -403,9 +416,10 @@ const HomePage: React.FC = () => {
   );
 
   return (
+    <AppPage className="flex min-h-full flex-col px-0 pb-0 pt-0 md:px-0 lg:px-0">
     <div
       data-testid="home-dashboard"
-      className="flex h-[calc(100vh-5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-2rem)] w-full flex-col overflow-hidden"
+      className="flex h-full w-full flex-col overflow-hidden"
     >
       {/* ── Full-width search header (all three columns align below) ── */}
       <header className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-hidden border-b border-subtle/60 px-3 py-3 md:px-4">
@@ -604,6 +618,7 @@ const HomePage: React.FC = () => {
         onCancel={() => setShowDeleteConfirm(false)}
       />
     </div>
+    </AppPage>
   );
 };
 
