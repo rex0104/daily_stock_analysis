@@ -25,13 +25,32 @@ from typing import Optional
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from api.v1 import api_v1_router
 from api.middlewares.auth import add_auth_middleware
 from api.middlewares.error_handler import add_error_handlers
 from api.v1.schemas.common import HealthResponse
 from src.services.system_config_service import SystemConfigService
+
+
+class _StripApiTrailingSlash:
+    """Strip trailing slashes from /api/* paths before route matching.
+
+    Prevents the SPA catch-all from intercepting /api/v1/foo/ before
+    FastAPI's router can match /api/v1/foo, eliminating redirect loops.
+    """
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("type") == "http":
+            path: str = scope.get("path", "")
+            if len(path) > 1 and path.endswith("/") and path.startswith("/api/"):
+                scope = dict(scope)
+                scope["path"] = path.rstrip("/")
+        await self.app(scope, receive, send)
 
 
 @asynccontextmanager
@@ -105,6 +124,7 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.add_middleware(_StripApiTrailingSlash)
     add_auth_middleware(app)
     
     # ============================================================
@@ -187,9 +207,6 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         async def serve_spa(request: Request, full_path: str):
             """SPA 路由回退 - 非 API 路由返回 index.html"""
             if full_path == "api" or full_path.startswith("api/"):
-                # Redirect trailing-slash API requests so FastAPI router can match them
-                if full_path.endswith("/"):
-                    return RedirectResponse(url=f"/{full_path.rstrip('/')}", status_code=307)
                 return JSONResponse(
                     status_code=404,
                     content={"error": "not_found", "message": f"API endpoint /{full_path} not found"}
