@@ -25,7 +25,7 @@ from typing import Optional
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from api.v1 import api_v1_router
 from api.middlewares.auth import add_auth_middleware
@@ -187,6 +187,9 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         async def serve_spa(request: Request, full_path: str):
             """SPA 路由回退 - 非 API 路由返回 index.html"""
             if full_path == "api" or full_path.startswith("api/"):
+                # Redirect trailing-slash API requests so FastAPI router can match them
+                if full_path.endswith("/"):
+                    return RedirectResponse(url=f"/{full_path.rstrip('/')}", status_code=307)
                 return JSONResponse(
                     status_code=404,
                     content={"error": "not_found", "message": f"API endpoint /{full_path} not found"}
